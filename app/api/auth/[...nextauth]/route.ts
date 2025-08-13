@@ -1,9 +1,15 @@
 // app/api/auth/[...nextauth]/route.ts
 import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { getDb } from '../../../lib/db_ticho';
+import { createClient } from '@libsql/client';
 import bcrypt from 'bcryptjs';
 import { DefaultSession } from 'next-auth';
+
+// Cliente de Turso
+const tursoClient = createClient({
+  url: process.env.TURSO_DATABASE_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN!,
+});
 
 // Constantes para mejor legibilidad
 const SESSION_MAX_AGE = 60 * 60 * 3; // 3 horas en segundos
@@ -25,18 +31,20 @@ export const authOptions = {
 
         try {
           const normalizedIdentifier = credentials.identifier.toLowerCase();
-          const db = await getDb();
           
-          const user = await db.get(
-            'SELECT id, username, email, password, first_name, last_name FROM users WHERE LOWER(username) = ? OR LOWER(email) = ?',
-            [normalizedIdentifier, normalizedIdentifier]
-          );
+          // Consulta usando Turso
+          const result = await tursoClient.execute({
+            sql: 'SELECT id, username, email, password, first_name, last_name FROM users WHERE LOWER(username) = ? OR LOWER(email) = ?',
+            args: [normalizedIdentifier, normalizedIdentifier]
+          });
+
+          const user = result.rows[0];
 
           if (!user) {
             throw new Error('Credenciales inválidas');
           }
 
-          const passwordMatch = await bcrypt.compare(credentials.password, user.password);
+          const passwordMatch = await bcrypt.compare(credentials.password, user.password as string);
 
           if (!passwordMatch) {
             throw new Error('Credenciales inválidas');
@@ -49,9 +57,9 @@ export const authOptions = {
 
           return {
             id: user.id.toString(),
-            name: displayName,
-            email: user.email,
-            username: user.username
+            name: displayName as string,
+            email: user.email as string,
+            username: user.username as string
           };
         } catch (error) {
           console.error('Error en autorización:', error);
