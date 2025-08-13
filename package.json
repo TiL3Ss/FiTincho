@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@auth/core": "^0.40.0",
+    "@auth/core": "0.34.2",
     "@heroicons/react": "^2.2.0",
     "@libsql/client": "^0.15.10",
     "axios": "^1.11.0",
@@ -20,7 +20,11 @@
     "libphonenumber-js": "^1.12.10",
     "next": "15.4.5",
     "next-auth": "^4.24.7",
+<<<<<<< HEAD
     "nodemailer": "^6.9.0",
+=======
+    "nodemailer": "^6.10.1",
+>>>>>>> 987f2b34908a803ece3440c07a1078e2babbee23
     "playwright": "^1.54.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
