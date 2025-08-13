@@ -19,7 +19,7 @@
     "libphonenumber-js": "^1.12.10",
     "next": "15.4.5",
     "next-auth": "^4.24.7",
-    "nodemailer": "^7.0.5",
+    "nodemailer": "^6.10.1",
     "playwright": "^1.54.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
