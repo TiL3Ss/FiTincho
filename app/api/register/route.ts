@@ -95,7 +95,7 @@ export async function POST(req: Request) {
         username, 
         email, 
         hashedPassword,
-        formattedPhone, // Usamos el teléfono formateado
+        formattedPhone, 
         firstName || null,
         lastName || null
       ]
@@ -105,7 +105,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { 
           message: 'Usuario registrado exitosamente.',
-          userId: result.lastInsertRowid 
+          userId: Number(result.lastInsertRowid) // Convertir BigInt a Number
         },
         { status: 201 }
       );
