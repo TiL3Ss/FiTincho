@@ -6,7 +6,8 @@ import axios from 'axios';
 import Modal from './Modal';
 import NotificationToast from '../NotificationToast';
 import UserTabs from '../crud/list_rutina/UserTabs';
-import { PlusIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
+import BulkUploadModal from './BulkUploadModal';
+import { PlusIcon, ArrowLeftIcon, CloudArrowUpIcon } from '@heroicons/react/24/outline';
 
 // Definición de tipos de datos
 interface User {
@@ -85,6 +86,43 @@ interface RoutinesCrudProps {
   onClose: () => void;
 }
 
+// Interfaces para la carga masiva de rutinas
+interface UploadExerciseData {
+  series: number;
+  weight: number;
+  reps: string;
+  rest: number;
+  progress: number;
+}
+
+interface UploadParsedExercise {
+  name: string;
+  variant: string;
+  data: UploadExerciseData[];
+}
+
+interface UploadParsedMuscleGroup {
+  name: string;
+  exercises: UploadParsedExercise[];
+}
+
+interface UploadParsedRoutineDay {
+  day: string;
+  weekNumber: number;
+  muscleGroups: UploadParsedMuscleGroup[];
+}
+
+interface UploadParsedRoutine {
+  userName: string;
+  weekNumber: number;
+  days: UploadParsedRoutineDay[];
+}
+
+interface UploadRequest {
+  userId: string;
+  routine: UploadParsedRoutine;
+}
+
 const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: RoutinesCrudProps) => {
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -94,6 +132,7 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
   const [error, setError] = useState<string | null>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [currentRoutine, setCurrentRoutine] = useState<Routine | null>(null);
 
   const [notification, setNotification] = useState<NotificationState>({
@@ -175,13 +214,13 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
   const handleSubmission = async (data: any) => {
     try {
       if (currentRoutine) {
-        // Editar (PUT)
-        await axios.put(`/api/admin/routines/${data.id}`, data);
-        showNotification('Rutina actualizada con éxito.', 'success');
+        // Editar rutina existente (PUT)
+        const response = await axios.put(`/api/admin/routines/${currentRoutine.id}`, data);
+        showNotification(response.data.message || 'Rutina actualizada con éxito.', 'success');
       } else {
-        // Crear (POST)
-        await axios.post('/api/admin/routines', data);
-        showNotification('Rutina creada con éxito.', 'success');
+        // Crear nueva rutina (POST)
+        const response = await axios.post('/api/admin/routines', data);
+        showNotification(response.data.message || 'Rutina creada con éxito.', 'success');
       }
       await fetchData(); // Refrescar datos después de crear/editar
       setIsModalOpen(false);
@@ -189,6 +228,48 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
     } catch (err) {
       console.error('Error saving routine:', err);
       const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Error al guardar la rutina.';
+      showNotification(errorMessage, 'error');
+    }
+  };
+
+  // Nueva función para manejar la carga masiva de rutinas
+  const handleUploadRoutine = async (uploadData: any) => {
+    try {
+      const response = await axios.post('/api/admin/routines/upload', uploadData);
+      const { message, summary } = response.data;
+      
+      showNotification(
+        message || `Rutinas cargadas: ${summary?.total_routines_created || 0} nuevas, ${summary?.total_routines_replaced || 0} reemplazadas`,
+        'success'
+      );
+      
+      await fetchData(); // Refrescar datos después de la carga
+      return response.data;
+    } catch (err) {
+      console.error('Error uploading routine:', err);
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Error al cargar la rutina masiva.';
+      showNotification(errorMessage, 'error');
+      throw err;
+    }
+  };
+
+  // Nueva función para cambiar el estado activo/inactivo de una rutina
+  const handleToggleActive = async (routineId: number, currentStatus: number) => {
+    try {
+      const newStatus = currentStatus === 1 ? 0 : 1;
+      const response = await axios.put(`/api/admin/routines/${routineId}`, {
+        is_active: newStatus
+      });
+      
+      showNotification(
+        response.data.message || `Rutina ${newStatus ? 'activada' : 'desactivada'} con éxito.`,
+        'success'
+      );
+      
+      await fetchData(); // Refrescar datos
+    } catch (err) {
+      console.error('Error toggling routine status:', err);
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Error al cambiar el estado de la rutina.';
       showNotification(errorMessage, 'error');
     }
   };
@@ -327,7 +408,7 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
           <div className="w-12"></div>
         </div>
         
-        <div className="flex justify-center mb-6">
+        <div className="flex justify-center mb-6 space-x-4">
           <button
             onClick={handleCreate}
             className="inline-flex items-center px-6 py-3 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition duration-300 shadow-md hover:shadow-lg"
@@ -335,13 +416,23 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
             <PlusIcon className="h-5 w-5 mr-2" />
             Agregar Rutina
           </button>
+          
+          <button
+            onClick={() => setIsBulkUploadOpen(true)}
+            className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition duration-300 shadow-md hover:shadow-lg"
+          >
+            <CloudArrowUpIcon className="h-5 w-5 mr-2" />
+            Carga Masiva
+          </button>
         </div>
 
         <UserTabs
           groupedRoutines={groupedRoutines}
           onEdit={handleEdit}
           onDelete={handleDelete}
-          onAddRoutine={handleCreate} 
+          onAddRoutine={handleCreate}
+          onToggleActive={handleToggleActive}
+          onUploadRoutine={handleUploadRoutine}
         />
       </div>
 
@@ -356,6 +447,15 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
           users={users}
           muscleGroups={muscleGroups}
           exercises={exercises}
+        />
+      )}
+
+      {isBulkUploadOpen && (
+        <BulkUploadModal
+          isOpen={isBulkUploadOpen}
+          onClose={() => setIsBulkUploadOpen(false)}
+          onUpload={handleUploadRoutine}
+          users={users}
         />
       )}
     </>
