@@ -113,10 +113,10 @@ export default function Home() {
     return (
       <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
         {/* Fondo Lumiflex */}
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,_rgba(120,119,198,0.3),_transparent_50%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,_rgba(255,119,198,0.2),_transparent_50%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_40%_40%,_rgba(120,219,226,0.15),_transparent_50%)]" />
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-teal-900 to-sky-900">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,_rgba(72,187,120,0.3),_transparent_50%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,_rgba(56,189,248,0.25),_transparent_50%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_40%_40%,_rgba(45,212,191,0.2),_transparent_50%)]" />
           <div className="absolute inset-0 opacity-40 bg-[linear-gradient(45deg,transparent_25%,rgba(68,68,68,.2)_50%,transparent_75%,transparent_100%)]" 
                style={{ backgroundSize: '20px 20px' }} />
         </div>
