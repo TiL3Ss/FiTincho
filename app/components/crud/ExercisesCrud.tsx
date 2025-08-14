@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { TrashIcon, PencilSquareIcon, ArrowLeftIcon, ChevronDownIcon, ChevronRightIcon, FolderIcon, FolderOpenIcon } from '@heroicons/react/24/outline';
 import { TrashIcon as TrashIconS, PencilSquareIcon as PencilSquareIconS, ArrowLeftIcon as ArrowLeftIconS } from '@heroicons/react/24/solid';
+import ColorSelect from '../ui/ColorSelect';
 
 interface Exercise {
   id: number;
@@ -18,6 +19,7 @@ interface Exercise {
 interface MuscleGroup {
   id: number;
   name: string;
+  color_gm?: string;
   created_at: string;
   updated_at: string;
 }
@@ -30,6 +32,7 @@ interface ExerciseFormData {
 
 interface MuscleGroupFormData {
   name: string;
+  color_gm: string;
 }
 
 interface ExercisesCrudProps {
@@ -46,6 +49,25 @@ interface GroupedExercises {
 
 type FormMode = 'exercise' | 'muscleGroup';
 
+// Mapeo de colores para obtener gradientes
+const getColorGradient = (colorValue: string): string => {
+  const colorMap: Record<string, string> = {
+    coral: 'from-orange-400 via-pink-400 to-red-400',
+    ocean: 'from-blue-400 via-cyan-400 to-teal-400',
+    forest: 'from-green-400 via-emerald-400 to-teal-500',
+    lavender: 'from-purple-400 via-violet-400 to-indigo-400',
+    golden: 'from-yellow-400 via-orange-400 to-amber-500',
+    rose: 'from-pink-400 via-rose-400 to-red-400',
+    sky: 'from-sky-400 via-blue-400 to-indigo-400',
+    mint: 'from-teal-400 via-green-400 to-emerald-400',
+    sunset: 'from-orange-400 via-red-400 to-pink-500',
+    aurora: 'from-indigo-400 via-purple-400 to-pink-400',
+    emerald: 'from-emerald-400 via-green-500 to-teal-500',
+    twilight: 'from-slate-600 via-purple-500 to-indigo-500'
+  };
+  return colorMap[colorValue] || colorMap.ocean;
+};
+
 const initialExerciseFormData: ExerciseFormData = {
   name: '',
   variant: '',
@@ -53,7 +75,8 @@ const initialExerciseFormData: ExerciseFormData = {
 };
 
 const initialMuscleGroupFormData: MuscleGroupFormData = {
-  name: ''
+  name: '',
+  color_gm: 'ocean'
 };
 
 export default function ExercisesCrud({ showNotification, onClose }: ExercisesCrudProps) {
@@ -162,6 +185,14 @@ export default function ExercisesCrud({ showNotification, onClose }: ExercisesCr
     setMuscleGroupFormData(prev => ({
       ...prev,
       [name]: value
+    }));
+  };
+
+  // Manejar cambio de color
+  const handleColorChange = (color: string) => {
+    setMuscleGroupFormData(prev => ({
+      ...prev,
+      color_gm: color
     }));
   };
 
@@ -343,7 +374,8 @@ export default function ExercisesCrud({ showNotification, onClose }: ExercisesCr
   // Editar grupo muscular
   const handleEditMuscleGroup = (group: MuscleGroup) => {
     setMuscleGroupFormData({
-      name: group.name
+      name: group.name,
+      color_gm: group.color_gm || 'ocean'
     });
     setEditingMuscleGroupId(group.id);
     setFormMode('muscleGroup');
@@ -398,6 +430,7 @@ export default function ExercisesCrud({ showNotification, onClose }: ExercisesCr
                       const isExpanded = expandedGroups.has(groupKey);
                       const groupName = group ? group.name : 'Sin grupo asignado';
                       const exerciseCount = exercises.length;
+                      const colorGradient = group?.color_gm ? getColorGradient(group.color_gm) : 'from-gray-400 to-gray-500';
                       
                       return (
                         <div key={groupKey} className="border border-gray-200 rounded-xl overflow-hidden">
@@ -407,11 +440,16 @@ export default function ExercisesCrud({ showNotification, onClose }: ExercisesCr
                               onClick={() => toggleGroup(groupKey)}
                               className="flex items-center space-x-3 flex-1 cursor-pointer"
                             >
-                              {isExpanded ? (
-                                <FolderOpenIcon className="h-5 w-5 text-emerald-600" />
-                              ) : (
-                                <FolderIcon className="h-5 w-5 text-gray-500" />
-                              )}
+                              <div className="relative">
+                                {isExpanded ? (
+                                  <FolderOpenIcon className="h-5 w-5 text-emerald-600" />
+                                ) : (
+                                  <FolderIcon className="h-5 w-5 text-gray-500" />
+                                )}
+                                {group && (
+                                  <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-gradient-to-r ${colorGradient} border border-white shadow-sm`} />
+                                )}
+                              </div>
                               <div>
                                 <h4 className="font-semibold text-gray-800">{groupName}</h4>
                                 <p className="text-sm text-gray-600">
@@ -467,7 +505,7 @@ export default function ExercisesCrud({ showNotification, onClose }: ExercisesCr
                                   <div className="flex items-center justify-between">
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center space-x-3">
-                                        <div className="w-2 h-2 bg-emerald-400 rounded-full flex-shrink-0"></div>
+                                        <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${colorGradient} flex-shrink-0`}></div>
                                         <div className="flex-1 min-w-0">
                                           <p className="font-medium text-gray-900 truncate">
                                             {exercise.name}
@@ -667,6 +705,19 @@ export default function ExercisesCrud({ showNotification, onClose }: ExercisesCr
                     />
                     <p className="text-xs text-gray-500 mt-1">
                       Describe el grupo de músculos que se trabajarán
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Color del Grupo
+                    </label>
+                    <ColorSelect
+                      value={muscleGroupFormData.color_gm}
+                      onChange={handleColorChange}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Selecciona un color para identificar visualmente el grupo
                     </p>
                   </div>
 
