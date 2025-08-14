@@ -6,7 +6,6 @@ import axios from 'axios';
 import Modal from './Modal';
 import NotificationToast from '../NotificationToast';
 import UserTabs from '../crud/list_rutina/UserTabs';
-import BulkUploadModal from './BulkUploadModal';
 import { PlusIcon, ArrowLeftIcon, CloudArrowUpIcon } from '@heroicons/react/24/outline';
 
 // Definición de tipos de datos
@@ -450,14 +449,7 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
         />
       )}
 
-      {isBulkUploadOpen && (
-        <BulkUploadModal
-          isOpen={isBulkUploadOpen}
-          onClose={() => setIsBulkUploadOpen(false)}
-          onUpload={handleUploadRoutine}
-          users={users}
-        />
-      )}
+      
     </>
   );
 };
