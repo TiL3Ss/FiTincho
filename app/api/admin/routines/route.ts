@@ -1,36 +1,47 @@
 // api/admin/routines/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '../../../lib/db_ticho';
+import { createClient } from '@libsql/client';
+
+// Cliente de Turso
+const tursoClient = createClient({
+  url: process.env.TURSO_DATABASE_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN!,
+});
 
 // Función helper para obtener una rutina completa por ID
-async function getCompleteRoutineById(db: any, routineId: number) {
-  const routines = await db.all(`
-    SELECT 
-      r.id as routine_id,
-      r.week_number,
-      r.day_name,
-      r.is_active,
-      r.created_at,
-      u.username,
-      mg.name as muscle_group_name,
-      mg.id as muscle_group_id,
-      e.name as exercise_name,
-      e.variant as exercise_variant,
-      re.series,
-      re.weight,
-      re.reps,
-      re.rest_time,
-      re.progress,
-      re.notes
-    FROM routines r
-    JOIN users u ON r.user_id = u.id
-    LEFT JOIN routine_exercises re ON r.id = re.routine_id
-    LEFT JOIN exercises e ON re.exercise_id = e.id
-    LEFT JOIN muscle_groups mg ON re.muscle_group_id = mg.id
-    WHERE r.id = ?
-    ORDER BY mg.name, e.name, re.series
-  `, [routineId]);
+async function getCompleteRoutineById(routineId: number) {
+  const routinesResult = await tursoClient.execute({
+    sql: `
+      SELECT 
+        r.id as routine_id,
+        r.week_number,
+        r.day_name,
+        r.is_active,
+        r.created_at,
+        u.username,
+        mg.name as muscle_group_name,
+        mg.id as muscle_group_id,
+        e.name as exercise_name,
+        e.variant as exercise_variant,
+        re.series,
+        re.weight,
+        re.reps,
+        re.rest_time,
+        re.progress,
+        re.notes
+      FROM routines r
+      JOIN users u ON r.user_id = u.id
+      LEFT JOIN routine_exercises re ON r.id = re.routine_id
+      LEFT JOIN exercises e ON re.exercise_id = e.id
+      LEFT JOIN muscle_groups mg ON re.muscle_group_id = mg.id
+      WHERE r.id = ?
+      ORDER BY mg.name, e.name, re.series
+    `,
+    args: [routineId]
+  });
+
+  const routines = routinesResult.rows;
 
   if (routines.length === 0) {
     return null;
@@ -96,32 +107,33 @@ async function getCompleteRoutineById(db: any, routineId: number) {
 
 export async function GET(request: NextRequest) {
   try {
-    const db = await getDb();
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     
     const routines = [];
     
     if (userId) {
-      // Obtener todas las rutinas del usuario y luego agruparlas
-      const rawRoutines = await db.all(`
-        SELECT r.id FROM routines r WHERE r.user_id = ?
-      `, [userId]);
-      
-      for (const routine of rawRoutines) {
-        const completeRoutine = await getCompleteRoutineById(db, routine.id);
+      // Obtener todas las rutinas del usuario
+      const rawRoutinesResult = await tursoClient.execute({
+        sql: 'SELECT r.id FROM routines r WHERE r.user_id = ?',
+        args: [userId]
+      });
+
+      for (const routine of rawRoutinesResult.rows) {
+        const completeRoutine = await getCompleteRoutineById(routine.id);
         if (completeRoutine) {
           routines.push(completeRoutine);
         }
       }
     } else {
-      // Obtener todas las rutinas de la base de datos y luego agruparlas
-      const rawRoutines = await db.all(`
-        SELECT r.id FROM routines r
-      `);
+      // Obtener todas las rutinas de la base de datos
+      const rawRoutinesResult = await tursoClient.execute({
+        sql: 'SELECT r.id FROM routines r',
+        args: []
+      });
 
-      for (const routine of rawRoutines) {
-        const completeRoutine = await getCompleteRoutineById(db, routine.id);
+      for (const routine of rawRoutinesResult.rows) {
+        const completeRoutine = await getCompleteRoutineById(routine.id);
         if (completeRoutine) {
           routines.push(completeRoutine);
         }
@@ -140,7 +152,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const db = await getDb();
     const body = await request.json();
     const { week_number, day_name, user_id, exercises } = body;
 
@@ -151,59 +162,73 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await db.run('BEGIN TRANSACTION');
+    // Turso no tiene transacciones explícitas BEGIN/COMMIT/ROLLBACK en el cliente
+    // Pero usaremos batch para ejecutar múltiples operaciones atomicamente
+    const statements = [];
+
+    // Crear la rutina
+    statements.push({
+      sql: 'INSERT INTO routines (week_number, day_name, user_id) VALUES (?, ?, ?)',
+      args: [week_number, day_name, user_id]
+    });
 
     try {
-      const routineResult = await db.run(
-        'INSERT INTO routines (week_number, day_name, user_id) VALUES (?, ?, ?)',
-        [week_number, day_name, user_id]
-      );
-
-      const routineId = routineResult.lastID;
+      // Ejecutar la creación de rutina primero
+      const routineResult = await tursoClient.execute(statements[0]);
+      const routineId = routineResult.lastInsertRowid;
       console.log('Rutina creada con ID:', routineId);
 
       const muscleGroupIds = new Set();
+      const exerciseStatements = [];
       
       for (const exercise of exercises) {
         muscleGroupIds.add(exercise.muscle_group_id);
         
         for (let serieIndex = 0; serieIndex < exercise.series.length; serieIndex++) {
           const serie = exercise.series[serieIndex];
-          await db.run(`
-            INSERT INTO routine_exercises (
-              routine_id, muscle_group_id, exercise_id, series, 
-              weight, reps, rest_time, progress, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `, [
-            routineId,
-            exercise.muscle_group_id,
-            exercise.exercise_id,
-            serieIndex + 1,
-            serie.weight,
-            serie.reps,
-            serie.rest_time || '60s',
-            serie.progress || 0,
-            serie.notes || ''
-          ]);
+          exerciseStatements.push({
+            sql: `
+              INSERT INTO routine_exercises (
+                routine_id, muscle_group_id, exercise_id, series, 
+                weight, reps, rest_time, progress, notes
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `,
+            args: [
+              routineId,
+              exercise.muscle_group_id,
+              exercise.exercise_id,
+              serieIndex + 1,
+              serie.weight,
+              serie.reps,
+              serie.rest_time || '60s',
+              serie.progress || 0,
+              serie.notes || ''
+            ]
+          });
         }
       }
 
-      for (const mgId of muscleGroupIds) {
-        await db.run(
-          'INSERT OR IGNORE INTO routine_muscle_groups (routine_id, muscle_group_id) VALUES (?, ?)',
-          [routineId, mgId]
-        );
+      // Ejecutar los ejercicios en lotes
+      for (const stmt of exerciseStatements) {
+        await tursoClient.execute(stmt);
       }
 
-      await db.run('COMMIT');
-      const completeRoutine = await getCompleteRoutineById(db, routineId);
+      // Insertar relaciones de grupos musculares
+      for (const mgId of muscleGroupIds) {
+        await tursoClient.execute({
+          sql: 'INSERT OR IGNORE INTO routine_muscle_groups (routine_id, muscle_group_id) VALUES (?, ?)',
+          args: [routineId, mgId]
+        });
+      }
+
+      const completeRoutine = await getCompleteRoutineById(routineId);
       
       return NextResponse.json({ 
         message: 'Rutina creada exitosamente',
         routine: completeRoutine
       });
     } catch (innerError) {
-      await db.run('ROLLBACK');
+      console.error('Error in routine creation transaction:', innerError);
       throw innerError;
     }
   } catch (error) {

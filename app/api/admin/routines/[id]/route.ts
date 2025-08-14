@@ -1,35 +1,46 @@
 // api/admin/routines/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '../../../../lib/db_ticho';
+import { createClient } from '@libsql/client';
+
+// Cliente de Turso
+const tursoClient = createClient({
+  url: process.env.TURSO_DATABASE_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN!,
+});
 
 // Función helper para obtener una rutina completa por ID
-async function getCompleteRoutineById(db: any, routineId: number) {
-  const routines = await db.all(`
-    SELECT 
-      r.id as routine_id,
-      r.week_number,
-      r.day_name,
-      r.is_active,
-      r.created_at,
-      u.username,
-      mg.name as muscle_group_name,
-      mg.id as muscle_group_id,
-      e.name as exercise_name,
-      e.variant as exercise_variant,
-      re.series,
-      re.weight,
-      re.reps,
-      re.rest_time,
-      re.progress,
-      re.notes
-    FROM routines r
-    JOIN users u ON r.user_id = u.id
-    LEFT JOIN routine_exercises re ON r.id = re.routine_id
-    LEFT JOIN exercises e ON re.exercise_id = e.id
-    LEFT JOIN muscle_groups mg ON re.muscle_group_id = mg.id
-    WHERE r.id = ?
-    ORDER BY mg.name, e.name, re.series
-  `, [routineId]);
+async function getCompleteRoutineById(routineId: number) {
+  const routinesResult = await tursoClient.execute({
+    sql: `
+      SELECT 
+        r.id as routine_id,
+        r.week_number,
+        r.day_name,
+        r.is_active,
+        r.created_at,
+        u.username,
+        mg.name as muscle_group_name,
+        mg.id as muscle_group_id,
+        e.name as exercise_name,
+        e.variant as exercise_variant,
+        re.series,
+        re.weight,
+        re.reps,
+        re.rest_time,
+        re.progress,
+        re.notes
+      FROM routines r
+      JOIN users u ON r.user_id = u.id
+      LEFT JOIN routine_exercises re ON r.id = re.routine_id
+      LEFT JOIN exercises e ON re.exercise_id = e.id
+      LEFT JOIN muscle_groups mg ON re.muscle_group_id = mg.id
+      WHERE r.id = ?
+      ORDER BY mg.name, e.name, re.series
+    `,
+    args: [routineId]
+  });
+
+  const routines = routinesResult.rows;
 
   if (routines.length === 0) {
     return null;
@@ -95,7 +106,6 @@ async function getCompleteRoutineById(db: any, routineId: number) {
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const db = await getDb();
     // Await params before accessing its properties
     const { id } = await params;
     const routineId = parseInt(id);
@@ -104,10 +114,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     // Check if this is just an is_active update (from the backup component)
     if (body.hasOwnProperty('is_active') && Object.keys(body).length === 1) {
       // Simple status update
-      await db.run(
-        'UPDATE routines SET is_active = ?, updated_at = datetime("now", "localtime") WHERE id = ?',
-        [body.is_active, routineId]
-      );
+      await tursoClient.execute({
+        sql: 'UPDATE routines SET is_active = ?, updated_at = datetime("now", "localtime") WHERE id = ?',
+        args: [body.is_active, routineId]
+      });
 
       return NextResponse.json({ 
         message: `Rutina ${body.is_active ? 'activada' : 'desactivada'} exitosamente`
@@ -124,60 +134,70 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       );
     }
 
-    await db.run('BEGIN TRANSACTION');
-
     try {
-      await db.run(
-        'UPDATE routines SET week_number = ?, day_name = ?, updated_at = datetime("now", "localtime") WHERE id = ?',
-        [week_number, day_name, routineId]
-      );
+      // Update routine basic info
+      await tursoClient.execute({
+        sql: 'UPDATE routines SET week_number = ?, day_name = ?, updated_at = datetime("now", "localtime") WHERE id = ?',
+        args: [week_number, day_name, routineId]
+      });
 
-      await db.run('DELETE FROM routine_exercises WHERE routine_id = ?', [routineId]);
-      await db.run('DELETE FROM routine_muscle_groups WHERE routine_id = ?', [routineId]);
+      // Delete existing routine exercises and muscle group relations
+      await tursoClient.execute({
+        sql: 'DELETE FROM routine_exercises WHERE routine_id = ?',
+        args: [routineId]
+      });
+      
+      await tursoClient.execute({
+        sql: 'DELETE FROM routine_muscle_groups WHERE routine_id = ?',
+        args: [routineId]
+      });
 
       const muscleGroupIds = new Set();
       
+      // Insert new exercises
       for (const exercise of exercises) {
         muscleGroupIds.add(exercise.muscle_group_id);
         
         for (let serieIndex = 0; serieIndex < exercise.series.length; serieIndex++) {
           const serie = exercise.series[serieIndex];
-          await db.run(`
-            INSERT INTO routine_exercises (
-              routine_id, muscle_group_id, exercise_id, series, 
-              weight, reps, rest_time, progress, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `, [
-            routineId,
-            exercise.muscle_group_id,
-            exercise.exercise_id,
-            serieIndex + 1,
-            serie.weight,
-            serie.reps,
-            serie.rest_time || '60s',
-            serie.progress || 0,
-            serie.notes || ''
-          ]);
+          await tursoClient.execute({
+            sql: `
+              INSERT INTO routine_exercises (
+                routine_id, muscle_group_id, exercise_id, series, 
+                weight, reps, rest_time, progress, notes
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `,
+            args: [
+              routineId,
+              exercise.muscle_group_id,
+              exercise.exercise_id,
+              serieIndex + 1,
+              serie.weight,
+              serie.reps,
+              serie.rest_time || '60s',
+              serie.progress || 0,
+              serie.notes || ''
+            ]
+          });
         }
       }
 
+      // Insert muscle group relations
       for (const mgId of muscleGroupIds) {
-        await db.run(
-          'INSERT OR IGNORE INTO routine_muscle_groups (routine_id, muscle_group_id) VALUES (?, ?)',
-          [routineId, mgId]
-        );
+        await tursoClient.execute({
+          sql: 'INSERT OR IGNORE INTO routine_muscle_groups (routine_id, muscle_group_id) VALUES (?, ?)',
+          args: [routineId, mgId]
+        });
       }
 
-      await db.run('COMMIT');
-
-      const completeRoutine = await getCompleteRoutineById(db, routineId);
+      const completeRoutine = await getCompleteRoutineById(routineId);
 
       return NextResponse.json({ 
         message: 'Rutina actualizada exitosamente',
         routine: completeRoutine 
       });
     } catch (innerError) {
-      await db.run('ROLLBACK');
+      console.error('Error in routine update transaction:', innerError);
       throw innerError;
     }
   } catch (error) {
@@ -191,7 +211,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const db = await getDb();
     // Await params before accessing its properties
     const { id } = await params;
     const routineId = parseInt(id);
@@ -203,7 +222,10 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       );
     }
 
-    await db.run('DELETE FROM routines WHERE id = ?', [routineId]);
+    await tursoClient.execute({
+      sql: 'DELETE FROM routines WHERE id = ?',
+      args: [routineId]
+    });
 
     return NextResponse.json({ message: 'Rutina eliminada exitosamente' });
   } catch (error) {

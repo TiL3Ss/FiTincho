@@ -1,12 +1,17 @@
-// /api/admin/routine-muscle-groups/[id].route.ts
+// /api/admin/routine-muscle-groups/[id]/route.ts
 
-import { getDb } from '../../../../lib/db_ticho';
+import { createClient } from '@libsql/client';
 import { NextResponse } from 'next/server';
+
+// Cliente de Turso
+const tursoClient = createClient({
+  url: process.env.TURSO_DATABASE_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN!,
+});
 
 // Actualiza una relación de rutina-grupo muscular por su ID
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
-    const db = await getDb();
     const { routine_id, muscle_group_id } = await request.json();
 
     if (!routine_id || !muscle_group_id) {
@@ -14,28 +19,30 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     }
 
     // Verificar si la nueva relación ya existe para evitar duplicados, excluyendo el ID actual
-    const existingRelation = await db.get(
-      'SELECT id FROM routine_muscle_groups WHERE routine_id = ? AND muscle_group_id = ? AND id != ?',
-      [routine_id, muscle_group_id, params.id]
-    );
+    const existingRelationResult = await tursoClient.execute({
+      sql: 'SELECT id FROM routine_muscle_groups WHERE routine_id = ? AND muscle_group_id = ? AND id != ?',
+      args: [routine_id, muscle_group_id, params.id]
+    });
 
-    if (existingRelation) {
+    if (existingRelationResult.rows.length > 0) {
       return NextResponse.json({ message: 'This routine-muscle group relationship already exists' }, { status: 409 });
     }
 
-    const result = await db.run(
-      'UPDATE routine_muscle_groups SET routine_id = ?, muscle_group_id = ? WHERE id = ?',
-      [routine_id, muscle_group_id, params.id]
-    );
+    const result = await tursoClient.execute({
+      sql: 'UPDATE routine_muscle_groups SET routine_id = ?, muscle_group_id = ? WHERE id = ?',
+      args: [routine_id, muscle_group_id, params.id]
+    });
 
-    if (result.changes === 0) {
+    if (result.rowsAffected === 0) {
       return NextResponse.json({ message: 'Routine muscle group relationship not found or no changes made' }, { status: 404 });
     }
 
-    const updatedRoutineMuscleGroup = await db.get(
-      'SELECT * FROM routine_muscle_groups WHERE id = ?',
-      params.id
-    );
+    const updatedRoutineMuscleGroupResult = await tursoClient.execute({
+      sql: 'SELECT * FROM routine_muscle_groups WHERE id = ?',
+      args: [params.id]
+    });
+
+    const updatedRoutineMuscleGroup = updatedRoutineMuscleGroupResult.rows[0];
 
     return NextResponse.json(updatedRoutineMuscleGroup);
   } catch (error) {
@@ -48,10 +55,12 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 // Elimina una relación de rutina-grupo muscular por su ID
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   try {
-    const db = await getDb();
-    const result = await db.run('DELETE FROM routine_muscle_groups WHERE id = ?', params.id);
+    const result = await tursoClient.execute({
+      sql: 'DELETE FROM routine_muscle_groups WHERE id = ?',
+      args: [params.id]
+    });
 
-    if (result.changes === 0) {
+    if (result.rowsAffected === 0) {
       return NextResponse.json({ message: 'Routine muscle group relationship not found' }, { status: 404 });
     }
 

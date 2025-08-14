@@ -1,7 +1,13 @@
 // api/admin/routines/upload/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '../../../../lib/db_ticho';
+import { createClient } from '@libsql/client';
+
+// Cliente de Turso
+const tursoClient = createClient({
+  url: process.env.TURSO_DATABASE_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN!,
+});
 
 interface ExerciseData {
   series: number;
@@ -41,7 +47,6 @@ interface UploadRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    const db = await getDb();
     const body: UploadRequest = await request.json();
     const { userId, routine } = body;
 
@@ -61,132 +66,148 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar que el usuario existe
-    const userExists = await db.get('SELECT id FROM users WHERE id = ?', [userId]);
-    if (!userExists) {
+    const userExistsResult = await tursoClient.execute({
+      sql: 'SELECT id FROM users WHERE id = ?',
+      args: [userId]
+    });
+
+    if (userExistsResult.rows.length === 0) {
       return NextResponse.json(
         { error: 'Usuario no encontrado' }, 
         { status: 404 }
       );
     }
 
-    await db.run('BEGIN TRANSACTION');
-
     try {
       const createdRoutines = [];
       let deactivatedRoutines = [];
 
       // 🗑️ PASO 1: Eliminar rutinas existentes para esta semana y usuario
-      const existingRoutines = await db.all(
-        'SELECT id, day_name FROM routines WHERE user_id = ? AND week_number = ?',
-        [userId, routine.weekNumber]
-      );
+      const existingRoutinesResult = await tursoClient.execute({
+        sql: 'SELECT id, day_name FROM routines WHERE user_id = ? AND week_number = ?',
+        args: [userId, routine.weekNumber]
+      });
 
-      if (existingRoutines.length > 0) {
+      if (existingRoutinesResult.rows.length > 0) {
         // Eliminar ejercicios de rutina relacionados primero (para evitar problemas de FK)
-        for (const existingRoutine of existingRoutines) {
-          await db.run(
-            'DELETE FROM routine_exercises WHERE routine_id = ?',
-            [existingRoutine.id]
-          );
-          await db.run(
-            'DELETE FROM routine_muscle_groups WHERE routine_id = ?',
-            [existingRoutine.id]
-          );
+        for (const existingRoutine of existingRoutinesResult.rows) {
+          await tursoClient.execute({
+            sql: 'DELETE FROM routine_exercises WHERE routine_id = ?',
+            args: [existingRoutine.id]
+          });
+          await tursoClient.execute({
+            sql: 'DELETE FROM routine_muscle_groups WHERE routine_id = ?',
+            args: [existingRoutine.id]
+          });
         }
 
         // Eliminar las rutinas
-        await db.run(
-          'DELETE FROM routines WHERE user_id = ? AND week_number = ?',
-          [userId, routine.weekNumber]
-        );
+        await tursoClient.execute({
+          sql: 'DELETE FROM routines WHERE user_id = ? AND week_number = ?',
+          args: [userId, routine.weekNumber]
+        });
 
-        deactivatedRoutines = existingRoutines.map(r => ({
+        deactivatedRoutines = existingRoutinesResult.rows.map(r => ({
           id: r.id,
           day: r.day_name
         }));
 
-        console.log(`🗑️ Eliminadas ${existingRoutines.length} rutinas existentes para usuario ${userId}, semana ${routine.weekNumber}`);
+        console.log(`🗑️ Eliminadas ${existingRoutinesResult.rows.length} rutinas existentes para usuario ${userId}, semana ${routine.weekNumber}`);
       }
 
       // 🆕 PASO 2: Crear las nuevas rutinas (todas activas)
       for (const day of routine.days) {
         // Crear la rutina para este día
-        const routineResult = await db.run(`
-          INSERT INTO routines (
-            user_id, week_number, day_name, is_active, 
-            created_at, updated_at
-          ) VALUES (?, ?, ?, 1, datetime("now", "localtime"), datetime("now", "localtime"))
-        `, [userId, day.weekNumber, day.day]);
+        const routineResult = await tursoClient.execute({
+          sql: `
+            INSERT INTO routines (
+              user_id, week_number, day_name, is_active, 
+              created_at, updated_at
+            ) VALUES (?, ?, ?, 1, datetime("now", "localtime"), datetime("now", "localtime"))
+          `,
+          args: [userId, day.weekNumber, day.day]
+        });
 
-        const routineId = routineResult.lastID;
+        const routineId = routineResult.lastInsertRowid;
         const muscleGroupIds = new Set<number>();
 
         // Procesar cada grupo muscular del día
         for (const muscleGroup of day.muscleGroups) {
           // Obtener o crear el grupo muscular
-          let muscleGroupRecord = await db.get(
-            'SELECT id FROM muscle_groups WHERE name = ?', 
-            [muscleGroup.name]
-          );
+          const muscleGroupResult = await tursoClient.execute({
+            sql: 'SELECT id FROM muscle_groups WHERE name = ?',
+            args: [muscleGroup.name]
+          });
 
-          if (!muscleGroupRecord) {
-            const mgResult = await db.run(
-              'INSERT INTO muscle_groups (name, created_at) VALUES (?, datetime("now", "localtime"))',
-              [muscleGroup.name]
-            );
-            muscleGroupRecord = { id: mgResult.lastID };
+          let muscleGroupId;
+          if (muscleGroupResult.rows.length === 0) {
+            const mgResult = await tursoClient.execute({
+              sql: 'INSERT INTO muscle_groups (name, created_at) VALUES (?, datetime("now", "localtime"))',
+              args: [muscleGroup.name]
+            });
+            muscleGroupId = mgResult.lastInsertRowid;
+          } else {
+            muscleGroupId = muscleGroupResult.rows[0].id;
           }
 
-          muscleGroupIds.add(muscleGroupRecord.id);
+          muscleGroupIds.add(muscleGroupId);
 
           // Procesar cada ejercicio del grupo muscular
           for (const exercise of muscleGroup.exercises) {
             // Obtener o crear el ejercicio
-            let exerciseRecord = await db.get(
-              'SELECT id FROM exercises WHERE name = ? AND variant = ?', 
-              [exercise.name, exercise.variant || '']
-            );
+            const exerciseResult = await tursoClient.execute({
+              sql: 'SELECT id FROM exercises WHERE name = ? AND variant = ?',
+              args: [exercise.name, exercise.variant || '']
+            });
 
-            if (!exerciseRecord) {
-              const exerciseResult = await db.run(`
-                INSERT INTO exercises (
-                  name, variant, muscle_group_id, created_at
-                ) VALUES (?, ?, ?, datetime("now", "localtime"))
-              `, [exercise.name, exercise.variant || '', muscleGroupRecord.id]);
-              
-              exerciseRecord = { id: exerciseResult.lastID };
+            let exerciseId;
+            if (exerciseResult.rows.length === 0) {
+              const exerciseCreateResult = await tursoClient.execute({
+                sql: `
+                  INSERT INTO exercises (
+                    name, variant, muscle_group_id, created_at
+                  ) VALUES (?, ?, ?, datetime("now", "localtime"))
+                `,
+                args: [exercise.name, exercise.variant || '', muscleGroupId]
+              });
+              exerciseId = exerciseCreateResult.lastInsertRowid;
+            } else {
+              exerciseId = exerciseResult.rows[0].id;
             }
 
             // Insertar cada serie del ejercicio
             for (let serieIndex = 0; serieIndex < exercise.data.length; serieIndex++) {
               const serie = exercise.data[serieIndex];
               
-              await db.run(`
-                INSERT INTO routine_exercises (
-                  routine_id, muscle_group_id, exercise_id, series,
-                  weight, reps, rest_time, progress, notes
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-              `, [
-                routineId,
-                muscleGroupRecord.id,
-                exerciseRecord.id,
-                serie.series,
-                serie.weight,
-                serie.reps,
-                `${serie.rest}s`,
-                serie.progress,
-                '' // notes vacías por defecto
-              ]);
+              await tursoClient.execute({
+                sql: `
+                  INSERT INTO routine_exercises (
+                    routine_id, muscle_group_id, exercise_id, series,
+                    weight, reps, rest_time, progress, notes
+                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `,
+                args: [
+                  routineId,
+                  muscleGroupId,
+                  exerciseId,
+                  serie.series,
+                  serie.weight,
+                  serie.reps,
+                  `${serie.rest}s`,
+                  serie.progress,
+                  '' // notes vacías por defecto
+                ]
+              });
             }
           }
         }
 
         // Insertar relaciones rutina-grupo muscular
         for (const mgId of muscleGroupIds) {
-          await db.run(
-            'INSERT OR IGNORE INTO routine_muscle_groups (routine_id, muscle_group_id) VALUES (?, ?)',
-            [routineId, mgId]
-          );
+          await tursoClient.execute({
+            sql: 'INSERT OR IGNORE INTO routine_muscle_groups (routine_id, muscle_group_id) VALUES (?, ?)',
+            args: [routineId, mgId]
+          });
         }
 
         createdRoutines.push({
@@ -195,8 +216,6 @@ export async function POST(request: NextRequest) {
           week_number: day.weekNumber
         });
       }
-
-      await db.run('COMMIT');
 
       // 📊 Preparar respuesta con información completa
       const responseMessage = deactivatedRoutines.length > 0 
@@ -218,7 +237,7 @@ export async function POST(request: NextRequest) {
       });
 
     } catch (innerError) {
-      await db.run('ROLLBACK');
+      console.error('Error in upload transaction:', innerError);
       throw innerError;
     }
 
@@ -252,7 +271,6 @@ export async function POST(request: NextRequest) {
 // Función helper para obtener estadísticas de rutinas cargadas (opcional)
 export async function GET(request: NextRequest) {
   try {
-    const db = await getDb();
     const url = new URL(request.url);
     const userId = url.searchParams.get('userId');
 
@@ -264,27 +282,30 @@ export async function GET(request: NextRequest) {
     }
 
     // Obtener estadísticas de rutinas del usuario
-    const stats = await db.all(`
-      SELECT 
-        week_number,
-        day_name,
-        COUNT(*) as routine_count,
-        MAX(created_at) as last_upload
-      FROM routines
-      WHERE user_id = ?
-      GROUP BY week_number, day_name
-      ORDER BY week_number, day_name
-    `, [userId]);
+    const statsResult = await tursoClient.execute({
+      sql: `
+        SELECT 
+          week_number,
+          day_name,
+          COUNT(*) as routine_count,
+          MAX(created_at) as last_upload
+        FROM routines
+        WHERE user_id = ?
+        GROUP BY week_number, day_name
+        ORDER BY week_number, day_name
+      `,
+      args: [userId]
+    });
 
-    const totalRoutines = await db.get(
-      'SELECT COUNT(*) as total FROM routines WHERE user_id = ?',
-      [userId]
-    );
+    const totalRoutinesResult = await tursoClient.execute({
+      sql: 'SELECT COUNT(*) as total FROM routines WHERE user_id = ?',
+      args: [userId]
+    });
 
     return NextResponse.json({
       user_id: userId,
-      total_routines: totalRoutines.total,
-      routines_by_week_and_day: stats
+      total_routines: totalRoutinesResult.rows[0].total,
+      routines_by_week_and_day: statsResult.rows
     });
 
   } catch (error) {
