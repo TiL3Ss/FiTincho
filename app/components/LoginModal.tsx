@@ -170,7 +170,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, onSuccess, isPendingRe
           className={`absolute top-4 right-4 w-8 h-8 rounded-full backdrop-blur-md bg-white/10 border border-white/20 flex items-center justify-center text-xl font-semibold transition-all duration-300 ${
             isPendingRedirect 
               ? 'text-white/40 cursor-not-allowed' 
-              : 'text-white/80 hover:text-white hover:bg-white/20 hover:scale-105'
+              : 'text-white/80 hover:text-white hover:bg-red-500/20 hover:scale-105'
           }`}
           aria-label="Cerrar"
         >
