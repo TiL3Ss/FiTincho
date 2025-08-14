@@ -1,8 +1,14 @@
 // app/api/auth/forgot-password/route.ts
 import { NextResponse } from 'next/server';
-import { getDb } from '../../../lib/db_ticho';
+import { createClient } from '@libsql/client';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
+
+// Cliente de Turso
+const tursoClient = createClient({
+  url: process.env.TURSO_DATABASE_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN!,
+});
 
 export async function POST(req: Request) {
   try {
@@ -13,7 +19,8 @@ export async function POST(req: Request) {
       fromEmail: process.env.FROM_EMAIL,
       nextAuthUrl: process.env.NEXTAUTH_URL,
       nodeEnv: process.env.NODE_ENV,
-      hasSmtpConfig: !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS)
+      hasSmtpConfig: !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS),
+      hasTursoConfig: !!(process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN)
     });
 
     const { email } = await req.json();
@@ -35,33 +42,33 @@ export async function POST(req: Request) {
       );
     }
 
-    const db = await getDb();
-
     // Verificar si el usuario existe
-    const user = await db.get(
-      'SELECT id, email, username FROM users WHERE email = ?',
-      [email]
-    );
+    const userResult = await tursoClient.execute({
+      sql: 'SELECT id, email, username FROM users WHERE email = ?',
+      args: [email]
+    });
 
     // Por seguridad, siempre devolvemos el mismo mensaje
     const successMessage = 'Si el correo existe en nuestros registros, recibirás un enlace de recuperación.';
 
-    if (!user) {
+    if (userResult.rows.length === 0) {
       return NextResponse.json(
         { message: successMessage },
         { status: 200 }
       );
     }
 
+    const user = userResult.rows[0];
+
     // Generar token de recuperación
     const resetToken = crypto.randomBytes(32).toString('hex');
     const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hora de expiración
 
     // Guardar el token en la base de datos
-    await db.run(
-      'UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE id = ?',
-      [resetToken, resetTokenExpiry.toISOString(), user.id]
-    );
+    await tursoClient.execute({
+      sql: 'UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE id = ?',
+      args: [resetToken, resetTokenExpiry.toISOString(), user.id]
+    });
 
     // Crear enlace de recuperación
     const resetLink = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
@@ -81,7 +88,7 @@ export async function POST(req: Request) {
     // 1. Intentar con SMTP (Gmail) primero
     if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
       try {
-        await sendEmailWithSMTP(email, user.username, resetLink);
+        await sendEmailWithSMTP(email, user.username as string, resetLink);
         emailSent = true;
         console.log('✅ Email enviado exitosamente con SMTP');
       } catch (error) {
@@ -93,7 +100,7 @@ export async function POST(req: Request) {
     // 2. Si SMTP falla, intentar con Resend
     if (!emailSent && process.env.RESEND_API_KEY) {
       try {
-        await sendEmailWithResend(email, user.username, resetLink);
+        await sendEmailWithResend(email, user.username as string, resetLink);
         emailSent = true;
         console.log('✅ Email enviado exitosamente con Resend');
       } catch (error) {
@@ -105,7 +112,7 @@ export async function POST(req: Request) {
     // 3. Si Resend falla, intentar con SendGrid
     if (!emailSent && process.env.SENDGRID_API_KEY) {
       try {
-        await sendEmailWithSendGrid(email, user.username, resetLink);
+        await sendEmailWithSendGrid(email, user.username as string, resetLink);
         emailSent = true;
         console.log('✅ Email enviado exitosamente con SendGrid');
       } catch (error) {
@@ -145,6 +152,24 @@ export async function POST(req: Request) {
 
   } catch (error) {
     console.error('Error en forgot-password:', error);
+    
+    // Manejo específico de errores de Turso
+    if (error instanceof Error) {
+      if (error.message.includes('SQLITE_READONLY')) {
+        return NextResponse.json(
+          { message: 'Error de configuración de base de datos.' },
+          { status: 500 }
+        );
+      }
+      
+      if (error.message.includes('no such table')) {
+        return NextResponse.json(
+          { message: 'Error de configuración de base de datos.' },
+          { status: 500 }
+        );
+      }
+    }
+    
     return NextResponse.json(
       { message: 'Error interno del servidor.' },
       { status: 500 }
@@ -238,7 +263,8 @@ async function sendEmailWithSendGrid(email: string, username: string, resetLink:
   });
 
   if (!sendGridResponse.ok) {
-    throw new Error('Error enviando email con SendGrid');
+    const errorText = await sendGridResponse.text();
+    throw new Error(`Error enviando email con SendGrid: ${sendGridResponse.status} - ${errorText}`);
   }
 }
 
