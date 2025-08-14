@@ -119,15 +119,23 @@ export default function RoutineUploader({
   const [availableUsers, setAvailableUsers] = useState<User[]>(users);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [usersInitialized, setUsersInitialized] = useState(false); // ✅ Nueva flag para evitar múltiples cargas
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Función para cargar usuarios desde la API
+  // ✅ Función optimizada para cargar usuarios desde la API
   const fetchUsers = async () => {
+    // ✅ Evitar múltiples requests simultáneas
+    if (loadingUsers) {
+      console.log('🔄 Ya se está cargando usuarios, saltando request...');
+      return;
+    }
+
     try {
       setLoadingUsers(true);
       setApiError(null);
+      console.log('📡 Iniciando carga de usuarios desde API...');
       
-      const response = await fetch('/api/admin/users?limit=100'); // Obtener más usuarios
+      const response = await fetch('/api/admin/users?limit=100');
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
@@ -138,6 +146,7 @@ export default function RoutineUploader({
       // ✅ Verificar que la respuesta tiene la estructura esperada
       if (userData && userData.users && Array.isArray(userData.users)) {
         setAvailableUsers(userData.users);
+        setUsersInitialized(true); // ✅ Marcar como inicializado
         console.log(`✅ Cargados ${userData.users.length} usuarios desde la API`);
       } else {
         console.error('🚫 Estructura de respuesta inesperada:', userData);
@@ -171,33 +180,37 @@ export default function RoutineUploader({
     }
   };
 
-  // ✅ Inicializar con usuarios pasados por props
+  // ✅ useEffect optimizado - solo se ejecuta una vez al montar el componente
   useEffect(() => {
+    console.log('🔄 RoutineUploader montado - inicializando usuarios...');
+    
+    // Si ya tenemos usuarios por props, usarlos y no hacer request
     if (users && users.length > 0) {
       console.log(`✅ Usando ${users.length} usuarios desde props`);
       setAvailableUsers(users);
+      setUsersInitialized(true); // ✅ Marcar como inicializado
       setLoadingUsers(false);
       setApiError(null);
-    } else {
-      // Solo cargar desde API si no se pasaron usuarios por props
+    } else if (!usersInitialized && !loadingUsers) {
+      // Solo cargar desde API si no están inicializados y no se está cargando
       console.log('ℹ️ No se pasaron usuarios por props, cargando desde API...');
       fetchUsers();
     }
-  }, [users]);
+  }, []); // ✅ Array de dependencias vacío - solo se ejecuta una vez
 
-  // ✅ Actualizar usuario seleccionado cuando cambien las props o los usuarios disponibles
+  // ✅ useEffect separado para manejar la selección automática del usuario
   useEffect(() => {
-    if (selectedUserId && availableUsers.length > 0) {
-      // Verificar que el usuario existe en la lista
+    // Solo ejecutar si tenemos usuarios disponibles y un selectedUserId válido
+    if (selectedUserId && availableUsers.length > 0 && !selectedUser) {
       const userExists = availableUsers.some(user => user.id === selectedUserId);
-      if (userExists && !selectedUser) {
+      if (userExists) {
         setSelectedUser(selectedUserId);
         console.log(`✅ Usuario seleccionado automáticamente: ${selectedUserId}`);
-      } else if (!userExists) {
+      } else {
         console.warn(`⚠️ Usuario ${selectedUserId} no encontrado en la lista de usuarios disponibles`);
       }
     }
-  }, [selectedUserId, availableUsers]);
+  }, [selectedUserId, availableUsers, selectedUser]); // ✅ Dependencias específicas
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -527,6 +540,13 @@ export default function RoutineUploader({
     return user.username || user.email;
   };
 
+  // ✅ Función para recargar usuarios manualmente
+  const handleRetryLoadUsers = () => {
+    console.log('🔄 Recargando usuarios manualmente...');
+    setUsersInitialized(false); // Reset para permitir nueva carga
+    fetchUsers();
+  };
+
   return (
     <div className="h-full flex flex-col text-gray-700">
       {/* Header */}
@@ -620,7 +640,7 @@ export default function RoutineUploader({
 
         {/* Panel de resultados y configuración - 60% */}
         <div className="flex-1 flex flex-col space-y-6">
-          {/* ✅ Selector de usuario mejorado */}
+          {/* ✅ Selector de usuario optimizado */}
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Usuario destinatario</h3>
             
@@ -638,7 +658,7 @@ export default function RoutineUploader({
                     <p className="text-red-600 text-sm mt-1">{apiError}</p>
                   </div>
                   <button 
-                    onClick={fetchUsers}
+                    onClick={handleRetryLoadUsers}
                     className="ml-2 bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded text-sm font-medium transition-colors"
                   >
                     Reintentar
