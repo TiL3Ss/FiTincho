@@ -74,7 +74,7 @@ const Modal: React.FC<ModalProps> = ({ onClose, onSubmit, routine, users, muscle
     }) || [{
       exercise_id: exercises[0]?.id,
       muscle_group_id: exercises[0]?.muscle_group_id,
-      series: [{ series: 1, weight: 0, reps: 0, rest_time: '60s', progress: 0, notes: '' }]
+      series: [{ series: 1, weight: 0, reps: 0, rest_time: '0s', progress: 0, notes: '' }]
     }],
   });
 
@@ -102,7 +102,7 @@ const Modal: React.FC<ModalProps> = ({ onClose, onSubmit, routine, users, muscle
         // Opcional: mantener series existentes o reiniciarlas si no hay
         series: updatedExercises[exIndex].series.length > 0
           ? updatedExercises[exIndex].series
-          : [{ series: 1, weight: 0, reps: 0, rest_time: '60s', progress: 0, notes: '' }]
+          : [{ series: 1, weight: 0, reps: 0, rest_time: '0s', progress: 0, notes: '' }]
       };
       return { ...prev, exercises: updatedExercises };
     });
@@ -146,7 +146,7 @@ const Modal: React.FC<ModalProps> = ({ onClose, onSubmit, routine, users, muscle
         ...updatedExercises[exIndex],
         series: [
           ...updatedExercises[exIndex].series,
-          { series: updatedExercises[exIndex].series.length + 1, weight: 0, reps: 0, rest_time: '60s', progress: 0, notes: '' }
+          { series: updatedExercises[exIndex].series.length + 1, weight: 0, reps: 0, rest_time: '0s', progress: 0, notes: '' }
         ],
       };
       return { ...prev, exercises: updatedExercises };
@@ -177,7 +177,7 @@ const Modal: React.FC<ModalProps> = ({ onClose, onSubmit, routine, users, muscle
           exercise_id: firstExerciseInGroup?.id || exercises[0]?.id,
           muscle_group_id: firstMuscleGroup?.id || exercises[0]?.muscle_group_id,
           series: [
-            { series: 1, weight: 0, reps: 0, rest_time: '60s', progress: 0, notes: '' }
+            { series: 1, weight: 0, reps: 0, rest_time: '0s', progress: 0, notes: '' }
           ],
         }
       ],
