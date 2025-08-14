@@ -143,172 +143,182 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, onSuccess, isPendingRe
   };
 
   return (
-    <>
-      {/* Notificación Toast */}
-      {notification.show && (
-        <NotificationToast
-          message={notification.message}
-          type={notification.type}
-          duration={notification.type === 'success' ? 4000 : 4000}
-          onClose={hideNotification}
-          persistent={notification.type === 'error' || isPendingRedirect}
-        />
-      )}
+  <>
+    {/* Notificación Toast */}
+    {notification.show && (
+      <NotificationToast
+        message={notification.message}
+        type={notification.type}
+        duration={notification.type === 'success' ? 4000 : 4000}
+        onClose={hideNotification}
+        persistent={notification.type === 'error' || isPendingRedirect}
+      />
+    )}
 
-      {/* Modal */}
-      <div className="fixed inset-0 flex justify-center items-center z-50  bg-opacity-30 backdrop-blur-sm">
-        <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full relative">
-          {/* Título dinámico */}
-          <h2 className="text-2xl font-bold mb-6 text-center text-green-500">
-            {showForgotPassword ? 'Recuperar Contraseña' : 'Iniciar Sesión'}
-          </h2>
-          
-          {/* Botón para cerrar el modal */}
+    {/* Modal */}
+    <div className="fixed inset-0 flex justify-center items-center z-50 bg-black/30 backdrop-blur-sm">
+      <div className="backdrop-blur-xl bg-white/10 border border-white/20 p-8 rounded-3xl shadow-2xl max-w-md w-full relative mx-4">
+        {/* Título dinámico */}
+        <h2 className="text-2xl font-bold mb-6 text-center bg-gradient-to-r from-green-400 to-sky-400 bg-clip-text text-transparent">
+          {showForgotPassword ? 'Recuperar Contraseña' : 'Iniciar Sesión'}
+        </h2>
+        
+        {/* Botón para cerrar el modal */}
+        <button
+          onClick={onClose}
+          disabled={isPendingRedirect}
+          className={`absolute top-4 right-4 w-8 h-8 rounded-full backdrop-blur-md bg-white/10 border border-white/20 flex items-center justify-center text-xl font-semibold transition-all duration-300 ${
+            isPendingRedirect 
+              ? 'text-white/40 cursor-not-allowed' 
+              : 'text-white/80 hover:text-white hover:bg-white/20 hover:scale-105'
+          }`}
+          aria-label="Cerrar"
+        >
+          ×
+        </button>
+
+        {/* Botón para volver al login (solo visible en forgot password) */}
+        {showForgotPassword && (
           <button
-            onClick={onClose}
-            disabled={isPendingRedirect}
-            className={`absolute top-3 right-3 text-2xl font-semibold transition-colors ${
-              isPendingRedirect 
-                ? 'text-gray-400 cursor-not-allowed' 
-                : 'text-gray-700 hover:text-red-700'
-            }`}
-            aria-label="Cerrar"
+            onClick={handleBackToLogin}
+            disabled={isSendingReset}
+            className="absolute top-4 left-4 w-8 h-8 rounded-full backdrop-blur-md bg-white/10 border border-white/20 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/20 transition-all duration-300 hover:scale-105"
+            aria-label="Volver al login"
           >
-            &times;
+            <ArrowLeftIcon className="h-4 w-4" />
           </button>
+        )}
 
-          {/* Botón para volver al login (solo visible en forgot password) */}
-          {showForgotPassword && (
-            <button
-              onClick={handleBackToLogin}
-              disabled={isSendingReset}
-              className="absolute top-3 left-3 text-gray-600 hover:text-green-600 transition-colors"
-              aria-label="Volver al login"
-            >
-              <ArrowLeftIcon className="h-6 w-6" />
-            </button>
-          )}
+        {/* Formulario de Login */}
+        {!showForgotPassword && (
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label htmlFor="identifier" className="block text-sm font-medium text-white/80 mb-2 ml-1">
+                Correo Electrónico o Nombre de Usuario
+              </label>
+              <input
+                type="text"
+                id="identifier"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                required
+                className="w-full px-5 py-3 backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl text-white placeholder-white/50 focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400/50 focus:outline-none transition-all duration-300 shadow-sm hover:bg-white/15"
+                placeholder="tu@ejemplo.com o tu_usuario"
+                disabled={isLoading || isPendingRedirect}
+              />
+            </div>
 
-          {/* Formulario de Login */}
-          {!showForgotPassword && (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-1 ml-2">
-                  Correo Electrónico o Nombre de Usuario
-                </label>
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-white/80 mb-2 ml-1">
+                Contraseña
+              </label>
+              <div className="relative">
                 <input
-                  type="text"
-                  id="identifier"
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
+                  type={showPassword ? 'text' : 'password'}
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full px-5 py-2.5 border-2 text-gray-700 border-gray-300 rounded-full focus:ring-2 focus:ring-green-500 focus:border-transparent focus:outline-none focus:shadow-outline-green transition-all duration-300 ease-in-out shadow-sm hover:shadow-md"
-                  placeholder="tu@ejemplo.com o tu_usuario"
+                  className="w-full px-5 py-3 pr-12 backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl text-white placeholder-white/50 focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400/50 focus:outline-none transition-all duration-300 shadow-sm hover:bg-white/15"
+                  placeholder="********"
                   disabled={isLoading || isPendingRedirect}
                 />
-              </div>
-
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1 ml-2">
-                  Contraseña
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    id="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    className="w-full px-5 py-2.5 pr-12 border-2 text-gray-700 border-gray-300 rounded-full focus:ring-2 focus:ring-green-400 focus:border-green-500 focus:outline-none transition-all duration-300 ease-in-out shadow-sm hover:shadow-inner"
-                    placeholder="********"
-                    disabled={isLoading || isPendingRedirect}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-green-600 hover:text-green-800"
-                    disabled={isLoading || isPendingRedirect}
-                  >
-                    {showPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Enlace para recuperar contraseña */}
-              <div className="text-right">
                 <button
                   type="button"
-                  onClick={() => setShowForgotPassword(true)}
-                  className="text-sm text-green-600 hover:text-green-800 transition-colors"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-emerald-400 hover:text-emerald-300 transition-colors"
                   disabled={isLoading || isPendingRedirect}
                 >
-                  ¿Olvidaste tu contraseña?
+                  {showPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
                 </button>
               </div>
+            </div>
 
-              <div className='flex justify-center'>
-                <button
-                  type="submit"
-                  disabled={isLoading || isPendingRedirect}
-                  className={`w-full font-semibold text-white font-medium text-sm px-5 py-2.5 text-center me-2 mb-2 rounded-full transition duration-300 ease-in-out
-                    ${(isLoading || isPendingRedirect)
-                      ? 'bg-green-400 cursor-not-allowed'
-                      : 'bg-green-700 hover:bg-green-800 focus:outline-none focus:ring-4 focus:ring-green-300 dark:bg-green-600 dark:hover:bg-green-700 dark:focus:ring-green-800'
-                    }`}
-                >
+            {/* Enlace para recuperar contraseña */}
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-sm text-teal-300 hover:text-teal-200 transition-colors font-medium"
+                disabled={isLoading || isPendingRedirect}
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+            </div>
+
+            <div className='flex justify-center pt-2'>
+              <button
+                type="submit"
+                disabled={isLoading || isPendingRedirect}
+                className={`group w-full font-semibold text-white px-6 py-3.5 text-center rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 overflow-hidden relative
+                  ${(isLoading || isPendingRedirect)
+                    ? 'bg-gradient-to-r from-emerald-400/50 to-sky-400/50 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-emerald-500 to-sky-500 hover:from-emerald-400 hover:to-sky-400'
+                  }`}
+              >
+                <span className="relative z-10">
                   {isPendingRedirect 
                     ? 'Redirigiendo...' 
                     : isLoading 
                       ? 'Iniciando Sesión...' 
                       : 'Iniciar Sesión'
                   }
-                </button>
-              </div>
-            </form>
-          )}
+                </span>
+                {!isLoading && !isPendingRedirect && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
 
-          {/* Formulario de Recuperación de Contraseña */}
-          {showForgotPassword && (
-            <form onSubmit={handleForgotPassword} className="space-y-4">
-              <div className="text-center text-gray-600 text-sm mb-4">
-                Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.
-              </div>
+        {/* Formulario de Recuperación de Contraseña */}
+        {showForgotPassword && (
+          <form onSubmit={handleForgotPassword} className="space-y-5">
+            <div className="text-center text-white/70 text-sm mb-6 leading-relaxed">
+              Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.
+            </div>
 
-              <div>
-                <label htmlFor="forgotEmail" className="block text-sm font-medium text-gray-700 mb-1 ml-2">
-                  Correo Electrónico
-                </label>
-                <input
-                  type="email"
-                  id="forgotEmail"
-                  value={forgotEmail}
-                  onChange={(e) => setForgotEmail(e.target.value)}
-                  required
-                  className="w-full px-5 py-2.5 border-2 text-gray-700 border-gray-300 rounded-full focus:ring-2 focus:ring-green-500 focus:border-transparent focus:outline-none focus:shadow-outline-green transition-all duration-300 ease-in-out shadow-sm hover:shadow-md"
-                  placeholder="tu@ejemplo.com"
-                  disabled={isSendingReset}
-                />
-              </div>
+            <div>
+              <label htmlFor="forgotEmail" className="block text-sm font-medium text-white/80 mb-2 ml-1">
+                Correo Electrónico
+              </label>
+              <input
+                type="email"
+                id="forgotEmail"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                required
+                className="w-full px-5 py-3 backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl text-white placeholder-white/50 focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400/50 focus:outline-none transition-all duration-300 shadow-sm hover:bg-white/15"
+                placeholder="tu@ejemplo.com"
+                disabled={isSendingReset}
+              />
+            </div>
 
-              <div className='flex justify-center'>
-                <button
-                  type="submit"
-                  disabled={isSendingReset}
-                  className={`w-full font-semibold text-white font-medium text-sm px-5 py-2.5 text-center me-2 mb-2 rounded-full transition duration-300 ease-in-out
-                    ${isSendingReset
-                      ? 'bg-green-400 cursor-not-allowed'
-                      : 'bg-green-700 hover:bg-green-800 focus:outline-none focus:ring-4 focus:ring-green-300 dark:bg-green-600 dark:hover:bg-green-700 dark:focus:ring-green-800'
-                    }`}
-                >
+            <div className='flex justify-center pt-2'>
+              <button
+                type="submit"
+                disabled={isSendingReset}
+                className={`group w-full font-semibold text-white px-6 py-3.5 text-center rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 overflow-hidden relative
+                  ${isSendingReset
+                    ? 'bg-gradient-to-r from-emerald-400/50 to-sky-400/50 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-emerald-500 to-sky-500 hover:from-emerald-400 hover:to-sky-400'
+                  }`}
+              >
+                <span className="relative z-10">
                   {isSendingReset ? 'Enviando...' : 'Enviar Enlace de Recuperación'}
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
+                </span>
+                {!isSendingReset && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
-    </>
-  );
+    </div>
+  </>
+);
 };
 
 export default LoginModal;

@@ -109,195 +109,202 @@ const RegisterModal: React.FC<RegisterModalProps> = ({ onClose, onSuccess, isPen
   };
 
   return (
-    <>
-      {notification.show && (
-        <NotificationToast
-          message={notification.message}
-          type={notification.type}
-          duration={4000}
-          onClose={hideNotification}
-          persistent={notification.type === 'error' || isPendingRedirect}
-        />
-      )}
+  <>
+    {notification.show && (
+      <NotificationToast
+        message={notification.message}
+        type={notification.type}
+        duration={4000}
+        onClose={hideNotification}
+        persistent={notification.type === 'error' || isPendingRedirect}
+      />
+    )}
 
-      <div className="fixed inset-0 flex justify-center items-center z-50 bg-opacity-30 backdrop-blur-sm">
-        <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full relative">
-          <h2 className="text-2xl font-bold mb-6 text-center text-green-500">Registrarse</h2>
+    <div className="fixed inset-0 flex justify-center items-center z-50 bg-black/30 backdrop-blur-sm">
+      <div className="backdrop-blur-xl bg-white/10 border border-white/20 p-8 rounded-3xl shadow-2xl max-w-md w-full relative mx-4">
+        <h2 className="text-2xl font-bold mb-6 text-center bg-gradient-to-r from-green-400 to-sky-400 bg-clip-text text-transparent">
+          Registrarse
+        </h2>
 
-          <button
-            onClick={onClose}
-            disabled={isPendingRedirect}
-            className={`absolute top-3 right-3 text-2xl font-semibold transition-colors ${
-              isPendingRedirect 
-                ? 'text-gray-400 cursor-not-allowed' 
-                : 'text-gray-700 hover:text-red-700'
-            }`}
-            aria-label="Cerrar"
-          >
-            &times;
-          </button>
+        <button
+          onClick={onClose}
+          disabled={isPendingRedirect}
+          className={`absolute top-4 right-4 w-8 h-8 rounded-full backdrop-blur-md bg-white/10 border border-white/20 flex items-center justify-center text-xl font-semibold transition-all duration-300 ${
+            isPendingRedirect 
+              ? 'text-white/40 cursor-not-allowed' 
+              : 'text-white/80 hover:text-white hover:bg-white/20 hover:scale-105'
+          }`}
+          aria-label="Cerrar"
+        >
+          ×
+        </button>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Nombre de Usuario */}
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1 ml-1">
-                Nombre de Usuario *
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Nombre de Usuario */}
+          <div>
+            <label htmlFor="username" className="block text-sm font-medium text-white/80 mb-2 ml-1">
+              Nombre de Usuario *
+            </label>
+            <input
+              type="text"
+              id="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              className="w-full px-5 py-3 backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl text-white placeholder-white/50 focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400/50 focus:outline-none transition-all duration-300 shadow-sm hover:bg-white/15"
+              placeholder="Tu nombre de usuario"
+              disabled={isLoading || isPendingRedirect}
+            />
+          </div>
+
+          {/* Email */}
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-white/80 mb-2 ml-1">
+              Correo Electrónico *
+            </label>
+            <input
+              type="email"
+              id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full px-5 py-3 backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl text-white placeholder-white/50 focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400/50 focus:outline-none transition-all duration-300 shadow-sm hover:bg-white/15"
+              placeholder="tu@ejemplo.com"
+              disabled={isLoading || isPendingRedirect}
+            />
+          </div>
+
+          {/* Nombre y Apellido */}
+          <div className="flex space-x-4">
+            <div className="flex-1">
+              <label htmlFor="firstName" className="block text-sm font-medium text-white/80 mb-2 ml-1">
+                Nombre
               </label>
               <input
                 type="text"
-                id="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                className="w-full px-5 py-2.5 border-2 text-gray-700 border-gray-300 rounded-full focus:ring-2 focus:ring-green-400 focus:border-green-500 focus:outline-none transition-all duration-300 ease-in-out shadow-sm hover:shadow-inner"
-                placeholder="Tu nombre de usuario"
+                id="firstName"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className="w-full px-5 py-3 backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl text-white placeholder-white/50 focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400/50 focus:outline-none transition-all duration-300 shadow-sm hover:bg-white/15"
+                placeholder="Tu nombre"
                 disabled={isLoading || isPendingRedirect}
               />
             </div>
-
-            {/* Email */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1 ml-1">
-                Correo Electrónico *
+            <div className="flex-1">
+              <label htmlFor="lastName" className="block text-sm font-medium text-white/80 mb-2 ml-1">
+                Apellido
               </label>
               <input
-                type="email"
-                id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full px-5 py-2.5 border-2 text-gray-700 border-gray-300 rounded-full focus:ring-2 focus:ring-green-400 focus:border-green-500 focus:outline-none transition-all duration-300 ease-in-out shadow-sm hover:shadow-inner"
-                placeholder="tu@ejemplo.com"
+                type="text"
+                id="lastName"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className="w-full px-5 py-3 backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl text-white placeholder-white/50 focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400/50 focus:outline-none transition-all duration-300 shadow-sm hover:bg-white/15"
+                placeholder="Tu apellido"
                 disabled={isLoading || isPendingRedirect}
               />
             </div>
+          </div>
 
-            {/* Nombre y Apellido */}
-            <div className="flex space-x-4">
-              <div className="flex-1">
-                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1 ml-1">
-                  Nombre
-                </label>
-                <input
-                  type="text"
-                  id="firstName"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  className="w-full px-5 py-2.5 border-2 text-gray-700 border-gray-300 rounded-full focus:ring-2 focus:ring-green-400 focus:border-green-500 focus:outline-none transition-all duration-300 ease-in-out shadow-sm hover:shadow-inner"
-                  placeholder="Tu nombre"
-                  disabled={isLoading || isPendingRedirect}
-                />
-              </div>
-              <div className="flex-1">
-                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1 ml-1">
-                  Apellido
-                </label>
-                <input
-                  type="text"
-                  id="lastName"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  className="w-full px-5 py-2.5 border-2 text-gray-700 border-gray-300 rounded-full focus:ring-2 focus:ring-green-400 focus:border-green-500 focus:outline-none transition-all duration-300 ease-in-out shadow-sm hover:shadow-inner"
-                  placeholder="Tu apellido"
-                  disabled={isLoading || isPendingRedirect}
-                />
-              </div>
-            </div>
+          {/* Teléfono */}
+          <div>
+            <label htmlFor="phone" className="block text-sm font-medium text-white/80 mb-2 ml-1">
+              Teléfono
+            </label>
+            <input
+              type="tel"
+              id="phone"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="w-full px-5 py-3 backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl text-white placeholder-white/50 focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400/50 focus:outline-none transition-all duration-300 shadow-sm hover:bg-white/15"
+              placeholder="+56 9 0000 0000"
+              disabled={isLoading || isPendingRedirect}
+            />
+          </div>
 
-            {/* Teléfono */}
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1 ml-1">
-                Teléfono
-              </label>
+          {/* Contraseña */}
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-white/80 mb-2 ml-1">
+              Contraseña *
+            </label>
+            <div className="relative">
               <input
-                type="tel"
-                id="phone"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-5 py-2.5 border-2 text-gray-700 border-gray-300 rounded-full focus:ring-2 focus:ring-green-400 focus:border-green-500 focus:outline-none transition-all duration-300 ease-in-out shadow-sm hover:shadow-inner"
-                placeholder="+56 9 0000 0000"
+                type={showPassword ? 'text' : 'password'}
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full px-5 py-3 pr-12 backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl text-white placeholder-white/50 focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400/50 focus:outline-none transition-all duration-300 shadow-sm hover:bg-white/15"
+                placeholder="********"
                 disabled={isLoading || isPendingRedirect}
               />
-            </div>
-
-            {/* Contraseña */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1 ml-1">
-                Contraseña *
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  id="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="w-full px-5 py-2.5 pr-12 border-2 text-gray-700 border-gray-300 rounded-full focus:ring-2 focus:ring-green-400 focus:border-green-500 focus:outline-none transition-all duration-300 ease-in-out shadow-sm hover:shadow-inner"
-                  placeholder="********"
-                  disabled={isLoading || isPendingRedirect}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-green-600 hover:text-green-800"
-                  disabled={isLoading || isPendingRedirect}
-                >
-                  {showPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Confirmar Contraseña */}
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1 ml-1">
-                Confirmar Contraseña *
-              </label>
-              <div className="relative">
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  id="confirmPassword"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  className="w-full px-5 py-2.5 pr-12 border-2 text-gray-700 border-gray-300 rounded-full focus:ring-2 focus:ring-green-400 focus:border-green-500 focus:outline-none transition-all duration-300 ease-in-out shadow-sm hover:shadow-inner"
-                  placeholder="********"
-                  disabled={isLoading || isPendingRedirect}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-green-600 hover:text-green-800"
-                  disabled={isLoading || isPendingRedirect}
-                >
-                  {showConfirmPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Botón de Envío */}
-            <div className='flex justify-center'>
               <button
-                type="submit"
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-4 flex items-center text-emerald-400 hover:text-emerald-300 transition-colors"
                 disabled={isLoading || isPendingRedirect}
-                className={`w-full font-semibold text-white px-5 py-2.5 text-center rounded-full transition-all duration-300 ease-in-out shadow-md hover:shadow-lg
-                  ${(isLoading || isPendingRedirect)
-                    ? 'bg-green-400 cursor-not-allowed' 
-                    : 'bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-300'
-                  }`}
               >
+                {showPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Confirmar Contraseña */}
+          <div>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-white/80 mb-2 ml-1">
+              Confirmar Contraseña *
+            </label>
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                id="confirmPassword"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                className="w-full px-5 py-3 pr-12 backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl text-white placeholder-white/50 focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400/50 focus:outline-none transition-all duration-300 shadow-sm hover:bg-white/15"
+                placeholder="********"
+                disabled={isLoading || isPendingRedirect}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute inset-y-0 right-0 pr-4 flex items-center text-emerald-400 hover:text-emerald-300 transition-colors"
+                disabled={isLoading || isPendingRedirect}
+              >
+                {showConfirmPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Botón de Envío */}
+          <div className='flex justify-center pt-4'>
+            <button
+              type="submit"
+              disabled={isLoading || isPendingRedirect}
+              className={`group w-full font-semibold text-white px-6 py-3.5 text-center rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 overflow-hidden relative
+                ${(isLoading || isPendingRedirect)
+                  ? 'bg-gradient-to-r from-emerald-400/50 to-sky-400/50 cursor-not-allowed' 
+                  : 'bg-gradient-to-r from-emerald-500 to-sky-500 hover:from-emerald-400 hover:to-sky-400'
+                }`}
+            >
+              <span className="relative z-10">
                 {isPendingRedirect 
                   ? 'Redirigiendo...' 
                   : isLoading 
                     ? 'Registrando...' 
                     : 'Registrarse'
                 }
-              </button>
-            </div>
-          </form>
-        </div>
+              </span>
+              {!isLoading && !isPendingRedirect && (
+                <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
+              )}
+            </button>
+          </div>
+        </form>
       </div>
-    </>
-  );
+    </div>
+  </>
+);
 };
 
 export default RegisterModal;
