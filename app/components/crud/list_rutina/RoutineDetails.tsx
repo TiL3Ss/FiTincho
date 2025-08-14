@@ -57,6 +57,8 @@ const getBorderColorClass = (muscleGroup: string) => {
       return 'border-purple-500';     // Morado
     case 'abdomen':
       return 'border-pink-500';       // Rosa
+    case 'Glúteos':
+     return 'border-cyan-500';       // celeste
     default:
       return 'border-gray-300';       // Gris neutro
   }

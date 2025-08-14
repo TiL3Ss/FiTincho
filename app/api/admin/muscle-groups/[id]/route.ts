@@ -124,14 +124,25 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     }
 
     // Eliminar el grupo muscular
-    await tursoClient.execute({
+    const deleteResult = await tursoClient.execute({
       sql: 'DELETE FROM muscle_groups WHERE id = ?',
       args: [id]
     });
 
-    return NextResponse.json({ message: 'Grupo muscular eliminado correctamente' });
+    // Verificar que se eliminó correctamente
+    if (deleteResult.rowsAffected === 0) {
+      return NextResponse.json({ message: 'No se pudo eliminar el grupo muscular' }, { status: 500 });
+    }
+
+    console.log(`Grupo muscular con ID ${id} eliminado. Filas afectadas: ${deleteResult.rowsAffected}`);
+    
+    return NextResponse.json({ 
+      message: 'Grupo muscular eliminado correctamente',
+      deletedId: id,
+      rowsAffected: deleteResult.rowsAffected
+    });
   } catch (error) {
     console.error('Error deleting muscle group:', error);
-    return NextResponse.json({ message: 'Error al eliminar el grupo muscular', error }, { status: 500 });
+    return NextResponse.json({ message: 'Error al eliminar el grupo muscular', error: error.message }, { status: 500 });
   }
 }
