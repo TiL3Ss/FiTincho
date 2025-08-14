@@ -183,14 +183,26 @@ export default function RoutineUploader({
   // ✅ useEffect optimizado - solo se ejecuta una vez al montar el componente
   useEffect(() => {
     console.log('🔄 RoutineUploader montado - inicializando usuarios...');
+    console.log('📊 Props recibidas - users:', users?.length, 'selectedUserId:', selectedUserId);
     
     // Si ya tenemos usuarios por props, usarlos y no hacer request
     if (users && users.length > 0) {
       console.log(`✅ Usando ${users.length} usuarios desde props`);
       setAvailableUsers(users);
-      setUsersInitialized(true); // ✅ Marcar como inicializado
+      setUsersInitialized(true);
       setLoadingUsers(false);
       setApiError(null);
+      
+      // ✅ Seleccionar usuario inmediatamente si se pasó por props
+      if (selectedUserId) {
+        const userExists = users.some(user => user.id === selectedUserId);
+        if (userExists) {
+          setSelectedUser(selectedUserId);
+          console.log(`✅ Usuario seleccionado automáticamente desde props: ${selectedUserId}`);
+        } else {
+          console.warn(`⚠️ Usuario ${selectedUserId} no encontrado en usuarios desde props`);
+        }
+      }
     } else if (!usersInitialized && !loadingUsers) {
       // Solo cargar desde API si no están inicializados y no se está cargando
       console.log('ℹ️ No se pasaron usuarios por props, cargando desde API...');
@@ -198,19 +210,22 @@ export default function RoutineUploader({
     }
   }, []); // ✅ Array de dependencias vacío - solo se ejecuta una vez
 
-  // ✅ useEffect separado para manejar la selección automática del usuario
+  // ✅ useEffect separado para manejar la selección automática del usuario DESPUÉS de cargar desde API
   useEffect(() => {
-    // Solo ejecutar si tenemos usuarios disponibles y un selectedUserId válido
-    if (selectedUserId && availableUsers.length > 0 && !selectedUser) {
-      const userExists = availableUsers.some(user => user.id === selectedUserId);
-      if (userExists) {
-        setSelectedUser(selectedUserId);
-        console.log(`✅ Usuario seleccionado automáticamente: ${selectedUserId}`);
-      } else {
-        console.warn(`⚠️ Usuario ${selectedUserId} no encontrado en la lista de usuarios disponibles`);
+    // Solo ejecutar si cargamos usuarios desde API y tenemos un selectedUserId válido
+    if (selectedUserId && availableUsers.length > 0 && !selectedUser && usersInitialized) {
+      // Verificar que no vinieron desde props (para evitar duplicar la selección)
+      if (!users || users.length === 0) {
+        const userExists = availableUsers.some(user => user.id === selectedUserId);
+        if (userExists) {
+          setSelectedUser(selectedUserId);
+          console.log(`✅ Usuario seleccionado automáticamente desde API: ${selectedUserId}`);
+        } else {
+          console.warn(`⚠️ Usuario ${selectedUserId} no encontrado en la lista de usuarios desde API`);
+        }
       }
     }
-  }, [selectedUserId, availableUsers, selectedUser]); // ✅ Dependencias específicas
+  }, [selectedUserId, availableUsers, selectedUser, usersInitialized, users]); // ✅ Dependencias específicas
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -483,33 +498,51 @@ export default function RoutineUploader({
       return;
     }
 
-    // Verificar que el usuario seleccionado existe en la lista
+    console.log('🚀 Iniciando upload de rutina...');
+    console.log('👤 Usuario seleccionado ID:', selectedUser);
+    console.log('📋 Lista de usuarios disponibles:', availableUsers.map(u => ({ id: u.id, username: u.username })));
+
+    // ✅ Verificar que el usuario seleccionado existe en la lista (con debug mejorado)
     const userExists = availableUsers.find(user => user.id === selectedUser);
+    console.log('🔍 Usuario encontrado en lista:', userExists);
+    
     if (!userExists) {
-      showNotification('El usuario seleccionado no es válido', 'error');
+      console.error('❌ Error de validación: Usuario no encontrado');
+      console.error('🔍 Buscando ID:', selectedUser);
+      console.error('📋 En lista de IDs:', availableUsers.map(u => u.id));
+      showNotification(`El usuario seleccionado no es válido. ID: ${selectedUser}`, 'error');
       return;
     }
 
+    console.log(`✅ Usuario validado: ${userExists.username} (${userExists.id})`);
     setUploading(true);
 
     try {
+      const payload = {
+        userId: selectedUser,
+        routine: processResult.routine
+      };
+      
+      console.log('📤 Enviando payload:', payload);
+
       const response = await fetch('/api/admin/routines/upload', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          userId: selectedUser,
-          routine: processResult.routine
-        }),
+        body: JSON.stringify(payload),
       });
+
+      console.log('📥 Response status:', response.status);
 
       if (!response.ok) {
         const error = await response.json();
+        console.error('❌ Error response:', error);
         throw new Error(error.error || error.message || 'Error al subir la rutina');
       }
 
       const result = await response.json();
+      console.log('✅ Upload exitoso:', result);
       showNotification(result.message || 'Rutina cargada exitosamente', 'success');
       setProcessResult(null);
       
@@ -518,6 +551,7 @@ export default function RoutineUploader({
         fileInputRef.current.value = '';
       }
     } catch (error: any) {
+      console.error('❌ Error en upload:', error);
       showNotification(error.message || 'Error al cargar la rutina', 'error');
     } finally {
       setUploading(false);
@@ -670,8 +704,15 @@ export default function RoutineUploader({
                 <select
                   value={selectedUser}
                   onChange={(e) => {
-                    setSelectedUser(e.target.value);
-                    console.log('🔄 Usuario seleccionado:', e.target.value);
+                    const newUserId = e.target.value;
+                    setSelectedUser(newUserId);
+                    console.log('🔄 Usuario seleccionado manualmente:', newUserId);
+                    
+                    // ✅ Debug: mostrar información del usuario seleccionado
+                    if (newUserId) {
+                      const selectedUserData = availableUsers.find(u => u.id === newUserId);
+                      console.log('👤 Datos del usuario seleccionado:', selectedUserData);
+                    }
                   }}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white text-gray-900"
                   disabled={availableUsers.length === 0}
@@ -686,24 +727,45 @@ export default function RoutineUploader({
                   ))}
                 </select>
                 
-                {/* ✅ Información mejorada */}
-                <div className="mt-3 flex items-center justify-between text-sm">
-                  {availableUsers.length > 0 ? (
-                    <div className="flex items-center text-green-700">
-                      <CheckCircleIcon className="h-4 w-4 mr-1" />
-                      <span>{availableUsers.length} usuario(s) disponible(s)</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center text-red-600">
-                      <XCircleIcon className="h-4 w-4 mr-1" />
-                      <span>No se pudieron cargar usuarios</span>
-                    </div>
-                  )}
+                {/* ✅ Información mejorada con debug */}
+                <div className="mt-3 space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    {availableUsers.length > 0 ? (
+                      <div className="flex items-center text-green-700">
+                        <CheckCircleIcon className="h-4 w-4 mr-1" />
+                        <span>{availableUsers.length} usuario(s) disponible(s)</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center text-red-600">
+                        <XCircleIcon className="h-4 w-4 mr-1" />
+                        <span>No se pudieron cargar usuarios</span>
+                      </div>
+                    )}
+                    
+                    {selectedUser && (
+                      <div className="text-gray-600">
+                        <span className="font-medium">Seleccionado: </span>
+                        <span>
+                          {(() => {
+                            const user = availableUsers.find(u => u.id === selectedUser);
+                            console.log('🔍 Buscando usuario con ID:', selectedUser, 'en lista de', availableUsers.length, 'usuarios');
+                            console.log('🔍 Usuario encontrado:', user);
+                            return user ? user.username : 'Usuario no encontrado';
+                          })()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                   
-                  {selectedUser && (
-                    <div className="text-gray-600">
-                      <span className="font-medium">Seleccionado: </span>
-                      <span>{availableUsers.find(u => u.id === selectedUser)?.username}</span>
+                  {/* ✅ Panel de debug (temporal) */}
+                  {process.env.NODE_ENV === 'development' && (
+                    <div className="bg-gray-50 border rounded p-2 text-xs text-gray-600">
+                      <div><strong>Debug:</strong></div>
+                      <div>selectedUser: "{selectedUser}"</div>
+                      <div>availableUsers.length: {availableUsers.length}</div>
+                      <div>usersInitialized: {usersInitialized.toString()}</div>
+                      <div>props.users.length: {users?.length || 0}</div>
+                      <div>props.selectedUserId: "{selectedUserId}"</div>
                     </div>
                   )}
                 </div>
