@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from 'react';
 import { TrashIcon, PencilSquareIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
-import { TrashIcon as TrashIconS, PencilSquareIcon as PencilSquareIconS, ArrowLeftIcon as ArrowLeftIconS } from '@heroicons/react/24/solid';
 
 interface User {
   id: number;
@@ -60,11 +59,28 @@ export default function UsersCrud({ showNotification, onClose }: UsersCrudProps)
     try {
       setTableLoading(true);
       const response = await fetch('/api/admin/users');
-      if (!response.ok) throw new Error('Error al cargar usuarios');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error al cargar usuarios');
+      }
+      
       const data = await response.json();
-      setUsers(data);
-    } catch (error) {
-      showNotification('Error al cargar usuarios', 'error');
+      console.log('Datos recibidos de la API:', data);
+      
+      // ✅ FIXED: Manejar el nuevo formato de respuesta de Turso API
+      if (data.users && Array.isArray(data.users)) {
+        // Nuevo formato con paginación
+        setUsers(data.users);
+      } else if (Array.isArray(data)) {
+        // Formato anterior (fallback)
+        setUsers(data);
+      } else {
+        throw new Error('Formato de datos inesperado');
+      }
+    } catch (error: any) {
+      console.error('Error cargando usuarios:', error);
+      showNotification(error.message || 'Error al cargar usuarios', 'error');
+      setUsers([]); // Asegurar que users sea un array
     } finally {
       setTableLoading(false);
     }
@@ -93,10 +109,24 @@ export default function UsersCrud({ showNotification, onClose }: UsersCrudProps)
       showNotification('El email es requerido', 'warning');
       return false;
     }
+    
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      showNotification('El formato del email no es válido', 'warning');
+      return false;
+    }
+    
     if (!editingId && !formData.password.trim()) {
       showNotification('La contraseña es requerida para nuevos usuarios', 'warning');
       return false;
     }
+    
+    if (formData.password && formData.password.length < 6) {
+      showNotification('La contraseña debe tener al menos 6 caracteres', 'warning');
+      return false;
+    }
+    
     return true;
   };
 
@@ -122,6 +152,8 @@ export default function UsersCrud({ showNotification, onClose }: UsersCrudProps)
         delete (submitData as any).password;
       }
 
+      console.log('Enviando datos:', { url, method, data: submitData });
+
       const response = await fetch(url, {
         method,
         headers: {
@@ -130,13 +162,15 @@ export default function UsersCrud({ showNotification, onClose }: UsersCrudProps)
         body: JSON.stringify(submitData),
       });
 
+      const responseData = await response.json();
+      console.log('Respuesta del servidor:', responseData);
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Error al guardar usuario');
+        throw new Error(responseData.error || responseData.message || 'Error al guardar usuario');
       }
 
       showNotification(
-        editingId ? 'Usuario actualizado correctamente' : 'Usuario creado correctamente',
+        responseData.message || (editingId ? 'Usuario actualizado correctamente' : 'Usuario creado correctamente'),
         'success'
       );
       
@@ -144,6 +178,7 @@ export default function UsersCrud({ showNotification, onClose }: UsersCrudProps)
       setEditingId(null);
       fetchUsers();
     } catch (error: any) {
+      console.error('Error guardando usuario:', error);
       showNotification(error.message || 'Error al guardar usuario', 'error');
     } finally {
       setLoading(false);
@@ -155,24 +190,29 @@ export default function UsersCrud({ showNotification, onClose }: UsersCrudProps)
     if (!confirm('¿Estás seguro de que quieres eliminar este usuario?')) return;
 
     try {
+      console.log('Eliminando usuario:', id);
       const response = await fetch(`/api/admin/users/${id}`, {
         method: 'DELETE',
       });
 
+      const responseData = await response.json();
+      console.log('Respuesta delete:', responseData);
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Error al eliminar usuario');
+        throw new Error(responseData.error || responseData.message || 'Error al eliminar usuario');
       }
 
       showNotification('Usuario eliminado correctamente', 'success');
       fetchUsers();
     } catch (error: any) {
+      console.error('Error eliminando usuario:', error);
       showNotification(error.message || 'Error al eliminar usuario', 'error');
     }
   };
 
   // Editar usuario
   const handleEdit = (user: User) => {
+    console.log('Editando usuario:', user);
     setFormData({
       username: user.username,
       email: user.email,
@@ -214,13 +254,22 @@ export default function UsersCrud({ showNotification, onClose }: UsersCrudProps)
         <div className="flex-1 flex flex-col">
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200 flex-1 flex flex-col overflow-hidden">
             <div className="p-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800">Lista de Usuarios</h3>
+              <h3 className="text-lg font-semibold text-gray-800">
+                Lista de Usuarios ({users.length} total)
+              </h3>
             </div>
             
             <div className="flex-1 overflow-auto">
               {tableLoading ? (
                 <div className="flex items-center justify-center h-64">
                   <div className="animate-spin rounded-full h-8 w-8 border-2 border-emerald-500 border-t-transparent"></div>
+                </div>
+              ) : users.length === 0 ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-center text-gray-500">
+                    <p className="text-lg mb-2">No hay usuarios</p>
+                    <p className="text-sm">Crea el primer usuario usando el formulario de la derecha</p>
+                  </div>
                 </div>
               ) : (
                 <table className="w-full">
@@ -283,7 +332,7 @@ export default function UsersCrud({ showNotification, onClose }: UsersCrudProps)
                                 Verificado
                               </span>
                             ) : (
-                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
                                 No Verificado
                               </span>
                             )}
@@ -293,13 +342,15 @@ export default function UsersCrud({ showNotification, onClose }: UsersCrudProps)
                           <div className="flex space-x-2">
                             <button
                               onClick={() => handleEdit(user)}
-                              className="text-indigo-600 hover:text-indigo-900 p-1 rounded hover:bg-indigo-50"
+                              className="text-indigo-600 hover:text-indigo-900 p-1 rounded hover:bg-indigo-50 transition-colors"
+                              title="Editar usuario"
                             >
                               <PencilSquareIcon className="h-4 w-4" />
                             </button>
                             <button
                               onClick={() => handleDelete(user.id)}
-                              className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                              className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 transition-colors"
+                              title="Eliminar usuario"
                             >
                               <TrashIcon className="h-4 w-4" />
                             </button>
@@ -333,6 +384,7 @@ export default function UsersCrud({ showNotification, onClose }: UsersCrudProps)
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                   placeholder="Nombre de usuario"
+                  required
                 />
               </div>
 
@@ -347,12 +399,13 @@ export default function UsersCrud({ showNotification, onClose }: UsersCrudProps)
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                   placeholder="correo@ejemplo.com"
+                  required
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Contraseña {editingId ? '' : '*'}
+                  Contraseña {editingId ? '(opcional)' : '*'}
                 </label>
                 <input
                   type="password"
@@ -361,6 +414,7 @@ export default function UsersCrud({ showNotification, onClose }: UsersCrudProps)
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                   placeholder={editingId ? "Dejar vacío para no cambiar" : "Contraseña"}
+                  {...(!editingId && { required: true })}
                 />
               </div>
 
@@ -446,16 +500,23 @@ export default function UsersCrud({ showNotification, onClose }: UsersCrudProps)
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 bg-emerald-600 text-white py-2 px-4 rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="flex-1 bg-emerald-600 text-white py-2 px-4 rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
                 >
-                  {loading ? 'Guardando...' : (editingId ? 'Actualizar' : 'Crear')}
+                  {loading ? (
+                    <span className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                      Guardando...
+                    </span>
+                  ) : (
+                    editingId ? 'Actualizar' : 'Crear'
+                  )}
                 </button>
                 
                 {editingId && (
                   <button
                     type="button"
                     onClick={handleCancel}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors font-medium"
                   >
                     Cancelar
                   </button>
