@@ -2,7 +2,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/route';
-import { getDb } from '../../../lib/db_ticho';
+import { createClient } from '@libsql/client';
+
+// Cliente de Turso
+const tursoClient = createClient({
+  url: process.env.TURSO_DATABASE_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN!,
+});
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,11 +21,12 @@ export async function GET(request: NextRequest) {
       }, { status: 401 });
     }
 
-    const db = await getDb();
-    const user = await db.get(
-      'SELECT id, is_moderator, username FROM users WHERE email = ?',
-      [session.user.email]
-    );
+    const userResult = await tursoClient.execute({
+      sql: 'SELECT id, is_moderator, username FROM users WHERE email = ?',
+      args: [session.user.email]
+    });
+
+    const user = userResult.rows[0];
 
     if (!user) {
       return NextResponse.json({ 

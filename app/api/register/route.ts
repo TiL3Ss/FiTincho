@@ -1,8 +1,14 @@
 // app/api/register/route.ts
 import { NextResponse } from 'next/server';
-import { getDb } from '../../lib/db_ticho';
+import { createClient } from '@libsql/client';
 import bcrypt from 'bcryptjs';
 import { parsePhoneNumber, AsYouType } from 'libphonenumber-js';
+
+// Cliente de Turso
+const tursoClient = createClient({
+  url: process.env.TURSO_DATABASE_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN!,
+});
 
 export async function POST(req: Request) {
   try {
@@ -54,15 +60,14 @@ export async function POST(req: Request) {
       }
     }
 
-    const db = await getDb();
-
     // Verifica si ya existe un usuario con el mismo username o email
-    const existingUser = await db.get(
-      'SELECT id FROM users WHERE username = ? OR email = ?', 
-      [username, email]
-    );
+    const existingUserResult = await tursoClient.execute({
+      sql: 'SELECT id, username, email FROM users WHERE username = ? OR email = ?',
+      args: [username, email]
+    });
 
-    if (existingUser) {
+    if (existingUserResult.rows.length > 0) {
+      const existingUser = existingUserResult.rows[0];
       const message = existingUser.email === email 
         ? 'El correo electrónico ya está registrado.' 
         : 'El nombre de usuario ya está en uso.';
@@ -77,8 +82,8 @@ export async function POST(req: Request) {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Inserción del nuevo usuario
-    const result = await db.run(
-      `INSERT INTO users (
+    const result = await tursoClient.execute({
+      sql: `INSERT INTO users (
         username, 
         email, 
         password, 
@@ -86,7 +91,7 @@ export async function POST(req: Request) {
         first_name, 
         last_name
       ) VALUES (?, ?, ?, ?, ?, ?)`,
-      [
+      args: [
         username, 
         email, 
         hashedPassword,
@@ -94,13 +99,13 @@ export async function POST(req: Request) {
         firstName || null,
         lastName || null
       ]
-    );
+    });
 
-    if (result.lastID) {
+    if (result.lastInsertRowid) {
       return NextResponse.json(
         { 
           message: 'Usuario registrado exitosamente.',
-          userId: result.lastID 
+          userId: result.lastInsertRowid 
         },
         { status: 201 }
       );

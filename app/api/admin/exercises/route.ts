@@ -1,32 +1,34 @@
 // /api/admin/exercises/route.ts
 
-import { getDb } from '../../../lib/db_ticho';
+import { createClient } from '@libsql/client';
 import { NextRequest, NextResponse } from 'next/server';
+
+// Cliente de Turso
+const tursoClient = createClient({
+  url: process.env.TURSO_DATABASE_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN!,
+});
 
 // GET - Obtener todos los ejercicios con información del grupo muscular
 export async function GET() {
   try {
-    const db = await getDb();
-    
     // Query con JOIN para obtener el nombre del grupo muscular
-    const exercises = await db.all(`
-      SELECT 
-        e.id,
-        e.name,
-        e.variant,
-        e.muscle_group_id,
-        mg.name as muscle_group_name,
-        e.created_at,
-        e.updated_at
-      FROM exercises e
-      LEFT JOIN muscle_groups mg ON e.muscle_group_id = mg.id
-      ORDER BY mg.name ASC, e.name ASC
-    `);
+    const exercisesResult = await tursoClient.execute({
+      sql: `SELECT 
+              e.id,
+              e.name,
+              e.variant,
+              e.muscle_group_id,
+              mg.name as muscle_group_name,
+              e.created_at,
+              e.updated_at
+            FROM exercises e
+            LEFT JOIN muscle_groups mg ON e.muscle_group_id = mg.id
+            ORDER BY mg.name ASC, e.name ASC`,
+      args: []
+    });
     
-    // Verificar que hay datos para devolver
-    if (!exercises) {
-      return NextResponse.json([], { status: 200 });
-    }
+    const exercises = exercisesResult.rows;
     
     return NextResponse.json(exercises, { status: 200 });
   } catch (error) {
@@ -55,16 +57,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const db = await getDb();
-
     // Verificar que el muscle_group_id existe si se proporciona
     if (muscle_group_id) {
-      const muscleGroupExists = await db.get(
-        'SELECT id FROM muscle_groups WHERE id = ?',
-        [muscle_group_id]
-      );
+      const muscleGroupResult = await tursoClient.execute({
+        sql: 'SELECT id FROM muscle_groups WHERE id = ?',
+        args: [muscle_group_id]
+      });
       
-      if (!muscleGroupExists) {
+      if (muscleGroupResult.rows.length === 0) {
         return NextResponse.json(
           { message: 'El grupo muscular especificado no existe' },
           { status: 400 }
@@ -73,12 +73,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar si ya existe un ejercicio con el mismo nombre y variante
-    const existingExercise = await db.get(
-      'SELECT id FROM exercises WHERE LOWER(name) = LOWER(?) AND COALESCE(LOWER(variant), "") = COALESCE(LOWER(?), "")',
-      [name.trim(), variant?.trim() || null]
-    );
+    const existingExerciseResult = await tursoClient.execute({
+      sql: 'SELECT id FROM exercises WHERE LOWER(name) = LOWER(?) AND COALESCE(LOWER(variant), "") = COALESCE(LOWER(?), "")',
+      args: [name.trim(), variant?.trim() || null]
+    });
 
-    if (existingExercise) {
+    if (existingExerciseResult.rows.length > 0) {
       return NextResponse.json(
         { message: 'Ya existe un ejercicio con ese nombre y variante' },
         { status: 409 }
@@ -86,34 +86,37 @@ export async function POST(request: NextRequest) {
     }
 
     // Insertar el nuevo ejercicio
-    const result = await db.run(
-      `INSERT INTO exercises (name, variant, muscle_group_id, created_at, updated_at) 
-       VALUES (?, ?, ?, datetime('now'), datetime('now'))`,
-      [
+    const result = await tursoClient.execute({
+      sql: `INSERT INTO exercises (name, variant, muscle_group_id, created_at, updated_at) 
+           VALUES (?, ?, ?, datetime('now'), datetime('now'))`,
+      args: [
         name.trim(),
         variant?.trim() || null,
         muscle_group_id || null
       ]
-    );
+    });
 
-    if (!result.lastID) {
+    if (!result.lastInsertRowid) {
       throw new Error('No se pudo crear el ejercicio');
     }
 
     // Obtener el ejercicio creado con información del grupo muscular
-    const newExercise = await db.get(`
-      SELECT 
-        e.id,
-        e.name,
-        e.variant,
-        e.muscle_group_id,
-        mg.name as muscle_group_name,
-        e.created_at,
-        e.updated_at
-      FROM exercises e
-      LEFT JOIN muscle_groups mg ON e.muscle_group_id = mg.id
-      WHERE e.id = ?
-    `, [result.lastID]);
+    const newExerciseResult = await tursoClient.execute({
+      sql: `SELECT 
+              e.id,
+              e.name,
+              e.variant,
+              e.muscle_group_id,
+              mg.name as muscle_group_name,
+              e.created_at,
+              e.updated_at
+            FROM exercises e
+            LEFT JOIN muscle_groups mg ON e.muscle_group_id = mg.id
+            WHERE e.id = ?`,
+      args: [result.lastInsertRowid]
+    });
+
+    const newExercise = newExerciseResult.rows[0];
 
     return NextResponse.json(newExercise, { status: 201 });
 

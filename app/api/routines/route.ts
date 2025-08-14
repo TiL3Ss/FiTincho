@@ -2,7 +2,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
-import { getDb } from '../../lib/db_ticho';
+import { createClient } from '@libsql/client';
+
+// Cliente de Turso
+const tursoClient = createClient({
+  url: process.env.TURSO_DATABASE_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN!,
+});
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,13 +22,13 @@ export async function GET(request: NextRequest) {
     const weekNumber = searchParams.get('weekNumber');
     const dayName = searchParams.get('dayName');
 
-    const db = await getDb();
-
     // Obtener el usuario actual de la sesión
-    const currentUser = await db.get(
-      'SELECT id, username, is_moderator FROM users WHERE email = ?',
-      [session.user.email]
-    );
+    const currentUserResult = await tursoClient.execute({
+      sql: 'SELECT id, username, is_moderator FROM users WHERE email = ?',
+      args: [session.user.email]
+    });
+
+    const currentUser = currentUserResult.rows[0];
 
     if (!currentUser) {
       return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
@@ -35,7 +41,7 @@ export async function GET(request: NextRequest) {
       targetUserId = parseInt(userId);
     }
 
-    // Construir la consulta base - asumiendo estructura de base de datos
+    // Construir la consulta base
     let query = `
         SELECT 
           r.id as routine_id,
@@ -43,7 +49,6 @@ export async function GET(request: NextRequest) {
           r.day_name,
           mg.id as muscle_group_id,
           mg.name as muscle_group_name,
-          -- mg.frequency as muscle_group_frequency, // eliminado
           e.id as exercise_id,
           e.name as exercise_name,
           e.variant as exercise_variant,
@@ -62,7 +67,6 @@ export async function GET(request: NextRequest) {
         WHERE r.user_id = ? AND (r.is_active IS NULL OR r.is_active = 1)
       `;
 
-
     const params = [targetUserId];
 
     // Filtros opcionales
@@ -77,7 +81,12 @@ export async function GET(request: NextRequest) {
 
     query += ' ORDER BY r.week_number, r.day_name, mg.id, re.series';
 
-    const results = await db.all(query, params);
+    const result = await tursoClient.execute({
+      sql: query,
+      args: params
+    });
+
+    const results = result.rows;
 
     // Estructurar los datos
     const weeks: any[] = [];

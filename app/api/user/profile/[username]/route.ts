@@ -2,7 +2,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../auth/[...nextauth]/route';
-import { getDb } from '../../../../lib/db_ticho';
+import { createClient } from '@libsql/client';
+
+// Cliente de Turso
+const tursoClient = createClient({
+  url: process.env.TURSO_DATABASE_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN!,
+});
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,13 +17,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    const db = await getDb();
-
     // Obtener el usuario actual
-    const currentUser = await db.get(
-      'SELECT id, username, email, first_name, last_name, is_moderator FROM users WHERE email = ?',
-      [session.user.email]
-    );
+    const currentUserResult = await tursoClient.execute({
+      sql: 'SELECT id, username, email, first_name, last_name, is_moderator FROM users WHERE email = ?',
+      args: [session.user.email]
+    });
+
+    const currentUser = currentUserResult.rows[0];
 
     if (!currentUser) {
       return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
@@ -28,8 +34,8 @@ export async function GET(request: NextRequest) {
     let users: any[];
     
     if (currentUser.is_moderator === 1) {
-      users = await db.all(
-        `SELECT 
+      const usersResult = await tursoClient.execute({
+        sql: `SELECT 
           id, 
           username,
           first_name,
@@ -47,8 +53,10 @@ export async function GET(request: NextRequest) {
           ) as display_name
         FROM users 
         WHERE is_active = 1 
-        ORDER BY username`
-      );
+        ORDER BY username`,
+        args: []
+      });
+      users = usersResult.rows;
     } else {
       const displayName = currentUser.first_name && currentUser.last_name 
         ? `${currentUser.first_name} ${currentUser.last_name}`

@@ -1,13 +1,24 @@
 // /api/admin/muscle-groups/route.ts
 
-import { getDb } from '../../../lib/db_ticho';
+import { createClient } from '@libsql/client';
 import { NextResponse } from 'next/server';
+
+// Cliente de Turso
+const tursoClient = createClient({
+  url: process.env.TURSO_DATABASE_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN!,
+});
 
 // Obtiene todos los grupos musculares
 export async function GET() {
   try {
-    const db = await getDb();
-    const muscleGroups = await db.all('SELECT * FROM muscle_groups');
+    const muscleGroupsResult = await tursoClient.execute({
+      sql: 'SELECT * FROM muscle_groups',
+      args: []
+    });
+    
+    const muscleGroups = muscleGroupsResult.rows;
+    
     return NextResponse.json(muscleGroups);
   } catch (error) {
     console.error('Error fetching muscle groups:', error);
@@ -19,15 +30,22 @@ export async function GET() {
 // Crea un nuevo grupo muscular
 export async function POST(request: Request) {
   try {
-    const db = await getDb();
     const { name } = await request.json();
     if (!name) {
       return NextResponse.json({ message: 'Missing required field: name' }, { status: 400 });
     }
 
-    const result = await db.run('INSERT INTO muscle_groups (name) VALUES (?)', [name]);
+    const result = await tursoClient.execute({
+      sql: 'INSERT INTO muscle_groups (name) VALUES (?)',
+      args: [name]
+    });
 
-    const newMuscleGroup = await db.get('SELECT * FROM muscle_groups WHERE id = ?', result.lastID);
+    const newMuscleGroupResult = await tursoClient.execute({
+      sql: 'SELECT * FROM muscle_groups WHERE id = ?',
+      args: [result.lastInsertRowid]
+    });
+
+    const newMuscleGroup = newMuscleGroupResult.rows[0];
 
     return NextResponse.json(newMuscleGroup, { status: 201 });
   } catch (error) {
