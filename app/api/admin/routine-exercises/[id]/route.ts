@@ -1,14 +1,22 @@
-
 // /api/admin/routine-exercises/[id]/route.ts
-
-import { getDb } from '../../../../lib/db_ticho';
+import { createClient } from '@libsql/client';
 import { NextResponse } from 'next/server';
+
+// Cliente de Turso
+const tursoClient = createClient({
+  url: process.env.TURSO_DATABASE_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN!,
+});
 
 // Obtiene un ejercicio de rutina por su ID
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    const db = await getDb();
-    const routineExercise = await db.get('SELECT * FROM routine_exercises WHERE id = ?', params.id);
+    const routineExerciseResult = await tursoClient.execute({
+      sql: 'SELECT * FROM routine_exercises WHERE id = ?',
+      args: [params.id]
+    });
+
+    const routineExercise = routineExerciseResult.rows[0];
 
     if (!routineExercise) {
       return NextResponse.json({ message: 'Routine exercise not found' }, { status: 404 });
@@ -25,19 +33,23 @@ export async function GET(request: Request, { params }: { params: { id: string }
 // Actualiza un ejercicio de rutina por su ID
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
-    const db = await getDb();
     const { routineId, exerciseId, sets, reps, notes } = await request.json();
 
-    const result = await db.run(
-      'UPDATE routine_exercises SET routine_id = ?, exercise_id = ?, sets = ?, reps = ?, notes = ? WHERE id = ?',
-      [routineId, exerciseId, sets, reps, notes, params.id]
-    );
+    const result = await tursoClient.execute({
+      sql: 'UPDATE routine_exercises SET routine_id = ?, exercise_id = ?, sets = ?, reps = ?, notes = ? WHERE id = ?',
+      args: [routineId, exerciseId, sets, reps, notes, params.id]
+    });
 
-    if (result.changes === 0) {
+    if (result.rowsAffected === 0) {
       return NextResponse.json({ message: 'Routine exercise not found or no changes made' }, { status: 404 });
     }
 
-    const updatedRoutineExercise = await db.get('SELECT * FROM routine_exercises WHERE id = ?', params.id);
+    const updatedRoutineExerciseResult = await tursoClient.execute({
+      sql: 'SELECT * FROM routine_exercises WHERE id = ?',
+      args: [params.id]
+    });
+
+    const updatedRoutineExercise = updatedRoutineExerciseResult.rows[0];
 
     return NextResponse.json(updatedRoutineExercise);
   } catch (error) {
@@ -50,10 +62,12 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 // Elimina un ejercicio de rutina por su ID
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   try {
-    const db = await getDb();
-    const result = await db.run('DELETE FROM routine_exercises WHERE id = ?', params.id);
+    const result = await tursoClient.execute({
+      sql: 'DELETE FROM routine_exercises WHERE id = ?',
+      args: [params.id]
+    });
 
-    if (result.changes === 0) {
+    if (result.rowsAffected === 0) {
       return NextResponse.json({ message: 'Routine exercise not found' }, { status: 404 });
     }
 
