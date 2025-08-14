@@ -1,6 +1,6 @@
 // /api/test-turso.ts
 import { NextResponse } from 'next/server';
-import { getTursoClient } from '../lib/turso';
+import { getTursoClient } from '../../lib/turso';
 
 export async function GET() {
   try {
