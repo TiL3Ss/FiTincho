@@ -15,11 +15,42 @@ import {
 import { ArrowLeftIcon as ArrowLeftIconS } from '@heroicons/react/24/solid';
 import ExcelJS from 'exceljs';
 
+interface User {
+  id: string;
+  username: string;
+  email: string;
+  phone?: string;
+  first_name: string;
+  last_name: string;
+  is_active?: boolean;
+  is_verified?: boolean;
+  is_moderator?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface UsersApiResponse {
+  users: User[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+  filters?: {
+    search: string;
+    sortBy: string;
+    sortOrder: string;
+  };
+}
+
 interface RoutineUploaderProps {
   showNotification: (message: string, type: 'success' | 'error' | 'info' | 'warning') => void;
   onClose: () => void;
   selectedUserId?: string;
-  users?: Array<{ id: string; name: string; email: string }>;
+  users?: User[];
 }
 
 interface ExerciseData {
@@ -85,65 +116,88 @@ export default function RoutineUploader({
   const [uploading, setUploading] = useState(false);
   const [processResult, setProcessResult] = useState<FileProcessResult | null>(null);
   const [selectedUser, setSelectedUser] = useState<string>(selectedUserId || '');
-  const [availableUsers, setAvailableUsers] = useState(users);
+  const [availableUsers, setAvailableUsers] = useState<User[]>(users);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Función para cargar usuarios desde la API
   const fetchUsers = async () => {
     try {
       setLoadingUsers(true);
-      const response = await fetch('/api/admin/users');
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const userData = await response.json();
+      setApiError(null);
       
-      // Verificar que userData es un array válido
-      if (Array.isArray(userData)) {
-        setAvailableUsers(userData);
+      const response = await fetch('/api/admin/users?limit=100'); // Obtener más usuarios
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
+      }
+      
+      const userData: UsersApiResponse = await response.json();
+      
+      // ✅ Verificar que la respuesta tiene la estructura esperada
+      if (userData && userData.users && Array.isArray(userData.users)) {
+        setAvailableUsers(userData.users);
+        console.log(`✅ Cargados ${userData.users.length} usuarios desde la API`);
       } else {
-        console.error('Los datos de usuarios no son un array:', userData);
-        setAvailableUsers([]);
-        showNotification('Formato de datos de usuarios inválido', 'error');
+        console.error('🚫 Estructura de respuesta inesperada:', userData);
+        throw new Error('La respuesta de la API no tiene el formato esperado');
       }
     } catch (error) {
-      console.error('Error fetching users:', error);
+      console.error('❌ Error fetching users:', error);
       setAvailableUsers([]);
       
-      // Si es un error de red o la API no existe, no mostrar notificación de error
-      if (error instanceof Error && error.message.includes('404')) {
-        console.log('API /api/admin/users no encontrada, usando lista vacía');
+      // Manejo específico de errores
+      if (error instanceof Error) {
+        if (error.message.includes('404')) {
+          setApiError('API de usuarios no encontrada (404)');
+          console.log('ℹ️ API /api/admin/users no encontrada, usando lista vacía');
+        } else if (error.message.includes('403') || error.message.includes('401')) {
+          setApiError('No tienes permisos para acceder a los usuarios');
+          showNotification('No tienes permisos para acceder a la lista de usuarios', 'error');
+        } else if (error.message.includes('500')) {
+          setApiError('Error interno del servidor');
+          showNotification('Error del servidor al cargar usuarios', 'error');
+        } else {
+          setApiError(`Error de conexión: ${error.message}`);
+          showNotification('Error de conexión al cargar usuarios', 'error');
+        }
       } else {
-        showNotification('Error al cargar usuarios', 'error');
+        setApiError('Error desconocido al cargar usuarios');
+        showNotification('Error desconocido al cargar usuarios', 'error');
       }
     } finally {
       setLoadingUsers(false);
     }
   };
 
-  // Cargar usuarios solo cuando sea necesario
-  const loadUsersIfNeeded = async () => {
-    if (availableUsers.length === 0 && !loadingUsers && users.length === 0) {
-      await fetchUsers();
-    }
-  };
-
-  // Solo establecer usuarios de props al inicio, no hacer llamada API automática
+  // ✅ Inicializar con usuarios pasados por props
   useEffect(() => {
-    if (users.length > 0) {
+    if (users && users.length > 0) {
+      console.log(`✅ Usando ${users.length} usuarios desde props`);
       setAvailableUsers(users);
       setLoadingUsers(false);
+      setApiError(null);
+    } else {
+      // Solo cargar desde API si no se pasaron usuarios por props
+      console.log('ℹ️ No se pasaron usuarios por props, cargando desde API...');
+      fetchUsers();
     }
-    // NO hacer fetchUsers() automáticamente aquí
   }, [users]);
 
-  // Actualizar usuario seleccionado cuando cambien las props
+  // ✅ Actualizar usuario seleccionado cuando cambien las props o los usuarios disponibles
   useEffect(() => {
-    if (selectedUserId && availableUsers.length > 0 && !selectedUser) {
-      setSelectedUser(selectedUserId);
+    if (selectedUserId && availableUsers.length > 0) {
+      // Verificar que el usuario existe en la lista
+      const userExists = availableUsers.some(user => user.id === selectedUserId);
+      if (userExists && !selectedUser) {
+        setSelectedUser(selectedUserId);
+        console.log(`✅ Usuario seleccionado automáticamente: ${selectedUserId}`);
+      } else if (!userExists) {
+        console.warn(`⚠️ Usuario ${selectedUserId} no encontrado en la lista de usuarios disponibles`);
+      }
     }
-  }, [selectedUserId, availableUsers, selectedUser]);
+  }, [selectedUserId, availableUsers]);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -411,18 +465,15 @@ export default function RoutineUploader({
       return;
     }
 
-    // Cargar usuarios si no están disponibles
-    if (availableUsers.length === 0) {
-      await loadUsersIfNeeded();
-      // Después de cargar, verificar si tenemos usuarios
-      if (availableUsers.length === 0) {
-        showNotification('No se pudieron cargar los usuarios', 'error');
-        return;
-      }
-    }
-
     if (!selectedUser) {
       showNotification('Selecciona un usuario para continuar', 'warning');
+      return;
+    }
+
+    // Verificar que el usuario seleccionado existe en la lista
+    const userExists = availableUsers.find(user => user.id === selectedUser);
+    if (!userExists) {
+      showNotification('El usuario seleccionado no es válido', 'error');
       return;
     }
 
@@ -442,10 +493,11 @@ export default function RoutineUploader({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Error al subir la rutina');
+        throw new Error(error.error || error.message || 'Error al subir la rutina');
       }
 
-      showNotification('Rutina cargada exitosamente', 'success');
+      const result = await response.json();
+      showNotification(result.message || 'Rutina cargada exitosamente', 'success');
       setProcessResult(null);
       
       // Limpiar input
@@ -464,6 +516,15 @@ export default function RoutineUploader({
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  };
+
+  // ✅ Función para mostrar el nombre completo del usuario
+  const getUserDisplayName = (user: User): string => {
+    const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+    if (fullName) {
+      return `${fullName} (${user.username})`;
+    }
+    return user.username || user.email;
   };
 
   return (
@@ -559,45 +620,70 @@ export default function RoutineUploader({
 
         {/* Panel de resultados y configuración - 60% */}
         <div className="flex-1 flex flex-col space-y-6">
-          {/* Selector de usuario */}
+          {/* ✅ Selector de usuario mejorado */}
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Usuario destinatario</h3>
+            
             {loadingUsers ? (
-              <div className="flex items-center justify-center p-4">
+              <div className="flex items-center justify-center p-6">
                 <div className="animate-spin rounded-full h-6 w-6 border-2 border-emerald-500 border-t-transparent"></div>
                 <span className="ml-2 text-gray-600">Cargando usuarios...</span>
+              </div>
+            ) : apiError ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <XCircleIcon className="h-5 w-5 text-red-400 mr-2" />
+                  <div className="flex-1">
+                    <p className="text-red-700 font-medium">Error al cargar usuarios</p>
+                    <p className="text-red-600 text-sm mt-1">{apiError}</p>
+                  </div>
+                  <button 
+                    onClick={fetchUsers}
+                    className="ml-2 bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded text-sm font-medium transition-colors"
+                  >
+                    Reintentar
+                  </button>
+                </div>
               </div>
             ) : (
               <>
                 <select
                   value={selectedUser}
-                  onChange={(e) => setSelectedUser(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  onChange={(e) => {
+                    setSelectedUser(e.target.value);
+                    console.log('🔄 Usuario seleccionado:', e.target.value);
+                  }}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white text-gray-900"
                   disabled={availableUsers.length === 0}
                 >
                   <option value="">
-                    {availableUsers.length === 0 ? 'No hay usuarios disponibles' : 'Seleccionar usuario'}
+                    {availableUsers.length === 0 ? 'No hay usuarios disponibles' : 'Seleccionar usuario...'}
                   </option>
                   {availableUsers.map(user => (
                     <option key={user.id} value={user.id}>
-                      {user.first_name}  {user.last_name}
+                      {getUserDisplayName(user)}
                     </option>
                   ))}
                 </select>
                 
-                {/* Información adicional */}
-                <div className="mt-2 text-sm text-gray-600">
+                {/* ✅ Información mejorada */}
+                <div className="mt-3 flex items-center justify-between text-sm">
                   {availableUsers.length > 0 ? (
-                    <span>✅ {availableUsers.length} usuario(s) disponible(s)</span>
+                    <div className="flex items-center text-green-700">
+                      <CheckCircleIcon className="h-4 w-4 mr-1" />
+                      <span>{availableUsers.length} usuario(s) disponible(s)</span>
+                    </div>
                   ) : (
-                    <div className="flex items-center justify-between">
-                      <span className="text-red-600">⚠️ No se pudieron cargar usuarios</span>
-                      <button 
-                        onClick={fetchUsers}
-                        className="ml-2 text-emerald-600 hover:text-emerald-700 underline text-xs"
-                      >
-                        Reintentar
-                      </button>
+                    <div className="flex items-center text-red-600">
+                      <XCircleIcon className="h-4 w-4 mr-1" />
+                      <span>No se pudieron cargar usuarios</span>
+                    </div>
+                  )}
+                  
+                  {selectedUser && (
+                    <div className="text-gray-600">
+                      <span className="font-medium">Seleccionado: </span>
+                      <span>{availableUsers.find(u => u.id === selectedUser)?.username}</span>
                     </div>
                   )}
                 </div>
@@ -761,24 +847,45 @@ export default function RoutineUploader({
                     ))}
                   </div>
 
-                  {/* Botón de carga */}
-                  <button
-                    onClick={uploadRoutine}
-                    disabled={uploading || !selectedUser}
-                    className="w-full bg-emerald-600 text-white py-3 px-4 rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
-                  >
-                    {uploading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                        <span>Cargando...</span>
-                      </>
-                    ) : (
-                      <>
-                        <ArrowUpTrayIcon className="h-5 w-5" />
-                        <span>Cargar rutina</span>
-                      </>
+                  {/* ✅ Botón de carga mejorado */}
+                  <div className="pt-4">
+                    {!selectedUser && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                        <div className="flex items-center">
+                          <ExclamationTriangleIcon className="h-5 w-5 text-yellow-400 mr-2" />
+                          <span className="text-yellow-700 text-sm">Selecciona un usuario antes de cargar la rutina</span>
+                        </div>
+                      </div>
                     )}
-                  </button>
+                    
+                    <button
+                      onClick={uploadRoutine}
+                      disabled={uploading || !selectedUser || availableUsers.length === 0}
+                      className="w-full bg-emerald-600 text-white py-3 px-4 rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2 font-medium"
+                    >
+                      {uploading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                          <span>Cargando rutina...</span>
+                        </>
+                      ) : !selectedUser ? (
+                        <>
+                          <ExclamationTriangleIcon className="h-5 w-5" />
+                          <span>Selecciona un usuario</span>
+                        </>
+                      ) : availableUsers.length === 0 ? (
+                        <>
+                          <XCircleIcon className="h-5 w-5" />
+                          <span>No hay usuarios disponibles</span>
+                        </>
+                      ) : (
+                        <>
+                          <ArrowUpTrayIcon className="h-5 w-5" />
+                          <span>Cargar rutina para {availableUsers.find(u => u.id === selectedUser)?.username}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
