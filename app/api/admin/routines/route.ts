@@ -200,7 +200,7 @@ export async function POST(request: NextRequest) {
               serieIndex + 1,
               serie.weight,
               serie.reps,
-              serie.rest_time || '60s',
+              serie.rest_time || '0s',
               serie.progress || 0,
               serie.notes || ''
             ]

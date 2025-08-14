@@ -174,7 +174,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
               serieIndex + 1,
               serie.weight,
               serie.reps,
-              serie.rest_time || '60s',
+              serie.rest_time || '0s',
               serie.progress || 0,
               serie.notes || ''
             ]
