@@ -85,42 +85,7 @@ interface RoutinesCrudProps {
   onClose: () => void;
 }
 
-// Interfaces para la carga masiva de rutinas
-interface UploadExerciseData {
-  series: number;
-  weight: number;
-  reps: string;
-  rest: number;
-  progress: number;
-}
 
-interface UploadParsedExercise {
-  name: string;
-  variant: string;
-  data: UploadExerciseData[];
-}
-
-interface UploadParsedMuscleGroup {
-  name: string;
-  exercises: UploadParsedExercise[];
-}
-
-interface UploadParsedRoutineDay {
-  day: string;
-  weekNumber: number;
-  muscleGroups: UploadParsedMuscleGroup[];
-}
-
-interface UploadParsedRoutine {
-  userName: string;
-  weekNumber: number;
-  days: UploadParsedRoutineDay[];
-}
-
-interface UploadRequest {
-  userId: string;
-  routine: UploadParsedRoutine;
-}
 
 const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: RoutinesCrudProps) => {
   const [routines, setRoutines] = useState<Routine[]>([]);
@@ -131,7 +96,6 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
   const [error, setError] = useState<string | null>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [currentRoutine, setCurrentRoutine] = useState<Routine | null>(null);
 
   const [notification, setNotification] = useState<NotificationState>({
@@ -416,13 +380,7 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
             Agregar Rutina
           </button>
           
-          <button
-            onClick={() => setIsBulkUploadOpen(true)}
-            className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition duration-300 shadow-md hover:shadow-lg"
-          >
-            <CloudArrowUpIcon className="h-5 w-5 mr-2" />
-            Carga Masiva
-          </button>
+          
         </div>
 
         <UserTabs

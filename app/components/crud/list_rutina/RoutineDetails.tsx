@@ -41,8 +41,6 @@ interface RoutineDetailsProps {
   routine: Routine;
   onEdit: (routine: Routine) => void;
   onDelete: (id: number) => void;
-  onToggleActive?: (routineId: number, currentStatus: number) => void;
-  isLoading?: boolean;
 }
 
 const getBorderColorClass = (muscleGroup: string) => {
@@ -64,31 +62,7 @@ const getBorderColorClass = (muscleGroup: string) => {
   }
 };
 
-const RoutineDetails: React.FC<RoutineDetailsProps> = ({ 
-  routine, 
-  onEdit, 
-  onDelete, 
-  onToggleActive,
-  isLoading = false 
-}) => {
-  const handleToggleActive = () => {
-    if (onToggleActive && !isLoading) {
-      onToggleActive(routine.id, routine.is_active);
-    }
-  };
-
-  const handleEdit = () => {
-    if (!isLoading) {
-      onEdit(routine);
-    }
-  };
-
-  const handleDelete = () => {
-    if (!isLoading) {
-      onDelete(routine.id);
-    }
-  };
-
+const RoutineDetails: React.FC<RoutineDetailsProps> = ({ routine, onEdit, onDelete }) => {
   return (
     <div className="bg-white/90 backdrop-blur-md p-5 rounded-3xl border border-white/40 shadow-md">
       <p className="text-sm text-gray-600">
@@ -149,31 +123,15 @@ const RoutineDetails: React.FC<RoutineDetailsProps> = ({
       </div>
 
       <div className="mt-6 flex justify-end space-x-3">
-        {onToggleActive && (
-          <button
-            onClick={handleToggleActive}
-            disabled={isLoading}
-            className={`px-4 py-2 rounded-full text-sm font-semibold transition duration-300 shadow disabled:opacity-50 ${
-              routine.is_active
-                ? 'bg-gray-600 text-white hover:bg-gray-700'
-                : 'bg-green-600 text-white hover:bg-green-700'
-            }`}
-          >
-            {routine.is_active ? 'Desactivar' : 'Activar'}
-          </button>
-        )}
-        
         <button
-          onClick={handleEdit}
-          disabled={isLoading}
-          className="bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-blue-700 transition duration-300 shadow disabled:opacity-50"
+          onClick={() => onEdit(routine)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-blue-700 transition duration-300 shadow"
         >
           Editar
         </button>
         <button
-          onClick={handleDelete}
-          disabled={isLoading}
-          className="bg-red-600 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-red-700 transition duration-300 shadow disabled:opacity-50"
+          onClick={() => onDelete(routine.id)}
+          className="bg-red-600 text-white px-4 py-2 rounded-full text-sm font-semibold hover:bg-red-700 transition duration-300 shadow"
         >
           Eliminar
         </button>
