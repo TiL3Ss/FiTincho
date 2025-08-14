@@ -374,7 +374,8 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
         <div className="flex justify-center mb-6 space-x-4">
           <button
             onClick={handleCreate}
-            className="inline-flex items-center px-6 py-3 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition duration-300 shadow-md hover:shadow-lg"
+            className="inline-flex items-center px-6 py-3 bg-emerald-600 text-white font-semibold rounded-full hover:bg-emerald-700 transition-all duration-300 shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-opacity-50
+"
           >
             <PlusIcon className="h-5 w-5 mr-2" />
             Agregar Rutina
