@@ -6,17 +6,23 @@ import axios from 'axios';
 import Modal from './Modal';
 import NotificationToast from '../NotificationToast';
 import UserTabs from '../crud/list_rutina/UserTabs';
-import { PlusIcon, XMarkIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 
 // Definición de tipos de datos
 interface User {
   id: number;
   username: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  is_active?: number;
 }
 
 interface MuscleGroup {
   id: number;
   name: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface Exercise {
@@ -24,6 +30,9 @@ interface Exercise {
   name: string;
   variant: string;
   muscle_group_id: number;
+  muscle_group_name?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface Series {
@@ -51,6 +60,7 @@ interface Routine {
   muscle_groups: MuscleGroup[];
   exercises: RoutineExercise[];
   created_at: string;
+  muscle_group_frequency?: { [key: string]: number };
 }
 
 interface NotificationState {
@@ -111,6 +121,8 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
   const fetchData = async () => {
     try {
       setLoading(true);
+      setError(null);
+
       const [routinesRes, usersRes, muscleGroupsRes, exercisesRes] = await Promise.all([
         axios.get('/api/admin/routines'),
         axios.get('/api/admin/users'),
@@ -118,16 +130,21 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
         axios.get('/api/admin/exercises'),
       ]);
 
-      setRoutines(routinesRes.data);
-      setUsers(usersRes.data);
-      setMuscleGroups(muscleGroupsRes.data);
-      setExercises(exercisesRes.data);
+      // Manejar la respuesta de usuarios que viene con paginación
+      const usersData = usersRes.data.users || usersRes.data;
+      
+      setRoutines(routinesRes.data || []);
+      setUsers(Array.isArray(usersData) ? usersData : []);
+      setMuscleGroups(muscleGroupsRes.data || []);
+      setExercises(exercisesRes.data || []);
+      
       setLoading(false);
     } catch (err) {
-      setError('Error al cargar los datos. Por favor, inténtalo de nuevo.');
+      console.error('Error fetching data:', err);
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Error al cargar los datos. Por favor, inténtalo de nuevo.';
+      setError(errorMessage);
       setLoading(false);
-      console.error(err);
-      showNotification('Error al cargar los datos.', 'error');
+      showNotification(errorMessage, 'error');
     }
   };
 
@@ -136,10 +153,11 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
       try {
         await axios.delete(`/api/admin/routines/${routineId}`);
         showNotification('Rutina eliminada con éxito.', 'success');
-        fetchData();
+        await fetchData(); // Refrescar datos después de eliminar
       } catch (err) {
-        showNotification('Error al eliminar la rutina.', 'error');
-        console.error(err);
+        console.error('Error deleting routine:', err);
+        const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Error al eliminar la rutina.';
+        showNotification(errorMessage, 'error');
       }
     }
   };
@@ -165,18 +183,19 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
         await axios.post('/api/admin/routines', data);
         showNotification('Rutina creada con éxito.', 'success');
       }
-      fetchData();
+      await fetchData(); // Refrescar datos después de crear/editar
       setIsModalOpen(false);
+      setCurrentRoutine(null);
     } catch (err) {
-      showNotification('Error al guardar la rutina.', 'error');
-      console.error(err);
+      console.error('Error saving routine:', err);
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Error al guardar la rutina.';
+      showNotification(errorMessage, 'error');
     }
   };
 
   if (loading) {
     return (
       <div className="container mx-auto p-4">
-        {/* Header con botón de regreso */}
         <div className="flex items-center justify-between mb-6">
           <button
             onClick={onClose}
@@ -186,9 +205,14 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
             <ArrowLeftIcon className="h-5 w-5 group-hover:transform group-hover:-translate-x-0.5 transition-transform duration-200" />
           </button>
           <h1 className="text-3xl font-bold">Gestión de Rutinas</h1>
-          <div className="w-12"></div> {/* Spacer para centrar el título */}
+          <div className="w-12"></div>
         </div>
-        <p className="text-center mt-8">Cargando rutinas...</p>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+            <p className="text-gray-600">Cargando rutinas...</p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -196,7 +220,6 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
   if (error) {
     return (
       <div className="container mx-auto p-4">
-        {/* Header con botón de regreso */}
         <div className="flex items-center justify-between mb-6">
           <button
             onClick={onClose}
@@ -206,13 +229,28 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
             <ArrowLeftIcon className="h-5 w-5 group-hover:transform group-hover:-translate-x-0.5 transition-transform duration-200" />
           </button>
           <h1 className="text-3xl font-bold">Gestión de Rutinas</h1>
-          <div className="w-12"></div> {/* Spacer para centrar el título */}
+          <div className="w-12"></div>
         </div>
-        <p className="text-center mt-8 text-red-500">{error}</p>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <div className="text-red-600 mb-4">
+            <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-medium text-red-800 mb-2">Error al cargar los datos</h3>
+          <p className="text-red-700 mb-4">{error}</p>
+          <button
+            onClick={fetchData}
+            className="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition duration-200"
+          >
+            Reintentar
+          </button>
+        </div>
       </div>
     );
   }
 
+  // Agrupar rutinas por usuario
   const groupedRoutines = routines.reduce((acc: GroupedRoutines, routine) => {
     const user = users.find((u) => u.username === routine.username);
     if (!user) return acc;
@@ -233,7 +271,6 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
   if (Object.keys(groupedRoutines).length === 0) {
     return (
       <div className="container mx-auto p-4">
-        {/* Header con botón de regreso */}
         <div className="flex items-center justify-between mb-6">
           <button
             onClick={onClose}
@@ -243,16 +280,22 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
             <ArrowLeftIcon className="h-5 w-5 group-hover:transform group-hover:-translate-x-0.5 transition-transform duration-200" />
           </button>
           <h1 className="text-3xl font-bold">Gestión de Rutinas</h1>
-          <div className="w-12"></div> {/* Spacer para centrar el título */}
+          <div className="w-12"></div>
         </div>
-        <div className="text-center">
-          <p className="mb-4">No hay usuarios con rutinas creadas.</p>
+        <div className="text-center py-12">
+          <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+            <svg className="w-12 h-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </div>
+          <h3 className="text-xl font-semibold text-gray-800 mb-2">No hay rutinas creadas</h3>
+          <p className="text-gray-600 mb-6">Comienza creando la primera rutina para tus usuarios.</p>
           <button
             onClick={handleCreate}
-            className="flex items-center mx-auto px-6 py-2 bg-green-600 text-white font-semibold rounded-full hover:bg-green-700 transition duration-300 shadow-md"
+            className="inline-flex items-center px-6 py-3 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition duration-300 shadow-md hover:shadow-lg"
           >
             <PlusIcon className="h-5 w-5 mr-2" />
-            Agregar Rutina
+            Crear Primera Rutina
           </button>
         </div>
       </div>
@@ -275,19 +318,19 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
         <div className="flex items-center justify-between mb-6">
           <button
             onClick={onClose}
-            className="flex items-center justify-center w-10 h-10 rounded-full bg-emerald-200 hover:bg-emerald-200 text-emerald-700 hover:text-emerald-800 transition-all duration-100 shadow-sm hover:shadow-md group"
+            className="flex items-center justify-center w-10 h-10 rounded-full bg-emerald-100 hover:bg-emerald-200 text-emerald-700 hover:text-emerald-800 transition-all duration-200 shadow-sm hover:shadow-md group"
             title="Volver al menú principal"
           >
             <ArrowLeftIcon className="h-5 w-5 group-hover:transform group-hover:-translate-x-0.5 transition-transform duration-200" />
           </button>
-          <h1 className="text-3xl font-bold">Gestión de Rutinas</h1>
-          <div className="w-12"></div> {/* Spacer para centrar el título */}
+          <h1 className="text-3xl font-bold text-gray-800">Gestión de Rutinas</h1>
+          <div className="w-12"></div>
         </div>
         
-        <div className="flex justify-center mb-4">
+        <div className="flex justify-center mb-6">
           <button
             onClick={handleCreate}
-            className="flex items-center px-6 py-2 bg-emerald-600 text-white font-semibold rounded-full hover:bg-emerald-700 transition duration-300 shadow-md"
+            className="inline-flex items-center px-6 py-3 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition duration-300 shadow-md hover:shadow-lg"
           >
             <PlusIcon className="h-5 w-5 mr-2" />
             Agregar Rutina
@@ -305,7 +348,10 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
       {isModalOpen && (
         <Modal
           routine={currentRoutine}
-          onClose={() => setIsModalOpen(false)}
+          onClose={() => {
+            setIsModalOpen(false);
+            setCurrentRoutine(null);
+          }}
           onSubmit={handleSubmission}
           users={users}
           muscleGroups={muscleGroups}
