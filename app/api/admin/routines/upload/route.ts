@@ -45,6 +45,27 @@ interface UploadRequest {
   routine: ParsedRoutine;
 }
 
+// ✅ Función helper para convertir BigInt a string/number
+const serializeBigInt = (obj: any): any => {
+  if (typeof obj === 'bigint') {
+    return Number(obj); // o String(obj) si prefieres string
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(serializeBigInt);
+  }
+  
+  if (obj && typeof obj === 'object') {
+    const serialized: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      serialized[key] = serializeBigInt(value);
+    }
+    return serialized;
+  }
+  
+  return obj;
+};
+
 export async function POST(request: NextRequest) {
   try {
     const body: UploadRequest = await request.json();
@@ -107,8 +128,9 @@ export async function POST(request: NextRequest) {
           args: [userId, routine.weekNumber]
         });
 
+        // ✅ Serializar los BigInt antes de agregar al array
         deactivatedRoutines = existingRoutinesResult.rows.map(r => ({
-          id: r.id,
+          id: Number(r.id), // Convertir BigInt a Number
           day: r.day_name
         }));
 
@@ -128,7 +150,8 @@ export async function POST(request: NextRequest) {
           args: [userId, day.weekNumber, day.day]
         });
 
-        const routineId = routineResult.lastInsertRowid;
+        // ✅ Convertir BigInt a Number inmediatamente
+        const routineId = Number(routineResult.lastInsertRowid);
         const muscleGroupIds = new Set<number>();
 
         // Procesar cada grupo muscular del día
@@ -139,15 +162,17 @@ export async function POST(request: NextRequest) {
             args: [muscleGroup.name]
           });
 
-          let muscleGroupId;
+          let muscleGroupId: number;
           if (muscleGroupResult.rows.length === 0) {
             const mgResult = await tursoClient.execute({
               sql: 'INSERT INTO muscle_groups (name, created_at) VALUES (?, datetime("now", "localtime"))',
               args: [muscleGroup.name]
             });
-            muscleGroupId = mgResult.lastInsertRowid;
+            // ✅ Convertir BigInt a Number
+            muscleGroupId = Number(mgResult.lastInsertRowid);
           } else {
-            muscleGroupId = muscleGroupResult.rows[0].id;
+            // ✅ Convertir BigInt a Number
+            muscleGroupId = Number(muscleGroupResult.rows[0].id);
           }
 
           muscleGroupIds.add(muscleGroupId);
@@ -160,7 +185,7 @@ export async function POST(request: NextRequest) {
               args: [exercise.name, exercise.variant || '']
             });
 
-            let exerciseId;
+            let exerciseId: number;
             if (exerciseResult.rows.length === 0) {
               const exerciseCreateResult = await tursoClient.execute({
                 sql: `
@@ -170,9 +195,11 @@ export async function POST(request: NextRequest) {
                 `,
                 args: [exercise.name, exercise.variant || '', muscleGroupId]
               });
-              exerciseId = exerciseCreateResult.lastInsertRowid;
+              // ✅ Convertir BigInt a Number
+              exerciseId = Number(exerciseCreateResult.lastInsertRowid);
             } else {
-              exerciseId = exerciseResult.rows[0].id;
+              // ✅ Convertir BigInt a Number
+              exerciseId = Number(exerciseResult.rows[0].id);
             }
 
             // Insertar cada serie del ejercicio
@@ -210,8 +237,9 @@ export async function POST(request: NextRequest) {
           });
         }
 
+        // ✅ Agregar rutina creada con ID ya convertido
         createdRoutines.push({
-          id: routineId,
+          id: routineId, // Ya es Number
           day: day.day,
           week_number: day.weekNumber
         });
@@ -222,7 +250,8 @@ export async function POST(request: NextRequest) {
         ? `Rutina actualizada exitosamente. Se eliminaron ${deactivatedRoutines.length} rutinas anteriores y se crearon ${createdRoutines.length} nuevas rutinas.`
         : 'Rutina cargada exitosamente';
 
-      return NextResponse.json({
+      // ✅ Crear objeto de respuesta y serializarlo por seguridad
+      const responseData = {
         message: responseMessage,
         routines: createdRoutines,
         deactivatedRoutines,
@@ -234,15 +263,39 @@ export async function POST(request: NextRequest) {
           total_routines_replaced: deactivatedRoutines.length,
           operation_type: deactivatedRoutines.length > 0 ? 'replace' : 'create'
         }
-      });
+      };
+
+      // ✅ Serializar cualquier BigInt restante por seguridad
+      const serializedResponse = serializeBigInt(responseData);
+
+      return NextResponse.json(serializedResponse);
 
     } catch (innerError) {
       console.error('Error in upload transaction:', innerError);
+      
+      // ✅ Manejar error específico de BigInt
+      if (innerError instanceof TypeError && innerError.message.includes('BigInt')) {
+        console.error('❌ Error de serialización BigInt detectado');
+        return NextResponse.json(
+          { error: 'Error de serialización de datos. Contacta al administrador.' },
+          { status: 500 }
+        );
+      }
+      
       throw innerError;
     }
 
   } catch (error) {
     console.error('Error uploading routine:', error);
+    
+    // ✅ Manejar error específico de BigInt
+    if (error instanceof TypeError && error.message.includes('BigInt')) {
+      console.error('❌ Error de serialización BigInt en nivel principal');
+      return NextResponse.json(
+        { error: 'Error de serialización de datos al procesar la rutina' },
+        { status: 500 }
+      );
+    }
     
     // Determinar el tipo de error y devolver respuesta apropiada
     if (error instanceof Error) {
@@ -302,14 +355,26 @@ export async function GET(request: NextRequest) {
       args: [userId]
     });
 
-    return NextResponse.json({
+    // ✅ Serializar respuesta para GET también
+    const responseData = {
       user_id: userId,
-      total_routines: totalRoutinesResult.rows[0].total,
-      routines_by_week_and_day: statsResult.rows
-    });
+      total_routines: Number(totalRoutinesResult.rows[0].total), // Convertir BigInt
+      routines_by_week_and_day: statsResult.rows.map(row => serializeBigInt(row)) // Serializar cada fila
+    };
+
+    return NextResponse.json(responseData);
 
   } catch (error) {
     console.error('Error getting routine stats:', error);
+    
+    // ✅ Manejar error de BigInt también en GET
+    if (error instanceof TypeError && error.message.includes('BigInt')) {
+      return NextResponse.json(
+        { error: 'Error de serialización de estadísticas' },
+        { status: 500 }
+      );
+    }
+    
     return NextResponse.json(
       { error: 'Error al obtener estadísticas de rutinas' },
       { status: 500 }
