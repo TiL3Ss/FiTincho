@@ -135,125 +135,124 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-hidden">
-      <Head>
-        <title>FiTincho</title>
-        <meta name="description" content="Organiza tus rutinas" />
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
+  <div className="min-h-screen flex flex-col relative overflow-hidden">
+    <Head>
+      <title>FiTincho</title>
+      <meta name="description" content="Organiza tus rutinas" />
+      <link rel="icon" href="/favicon.ico" />
+    </Head>
 
-      {/* Fondo Lumiflex mejorado */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-        {/* Gradientes radiales múltiples */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,_rgba(120,119,198,0.3),_transparent_50%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,_rgba(255,119,198,0.2),_transparent_50%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_40%_40%,_rgba(120,219,226,0.15),_transparent_50%)]" />
-        
-        {/* Overlay de textura sutil */}
-        <div className="absolute inset-0 opacity-40 bg-[linear-gradient(45deg,transparent_25%,rgba(68,68,68,.2)_50%,transparent_75%,transparent_100%)]" 
-             style={{ backgroundSize: '20px 20px' }} />
-        
-        {/* Elementos flotantes animados */}
-        <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-gradient-to-r from-blue-400/10 to-purple-400/10 rounded-full blur-xl animate-pulse"></div>
-        <div className="absolute top-3/4 right-1/4 w-40 h-40 bg-gradient-to-r from-pink-400/10 to-orange-400/10 rounded-full blur-xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 right-1/3 w-24 h-24 bg-gradient-to-r from-green-400/10 to-teal-400/10 rounded-full blur-xl animate-pulse delay-2000"></div>
-      </div>
-
-      <Header
-        onLoginClick={() => setShowLoginModal(true)}
-        onRegisterClick={() => setShowRegisterModal(true)}
-        isLoggedIn={isLoggedIn}
-        username={username} 
-        onLogout={handleLogout}
-        className="relative z-20 backdrop-blur-md bg-white/5 border-b border-white/10"
+    {/* Fondo celeste-verde */}
+    <div className="absolute inset-0 bg-gradient-to-br from-emerald-900 via-teal-900 to-sky-900">
+      {/* Gradientes radiales */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,_rgba(72,187,120,0.3),_transparent_50%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,_rgba(56,189,248,0.25),_transparent_50%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_40%_40%,_rgba(45,212,191,0.2),_transparent_50%)]" />
+      
+      {/* Overlay textura */}
+      <div
+        className="absolute inset-0 opacity-40 bg-[linear-gradient(45deg,transparent_25%,rgba(68,68,68,.15)_50%,transparent_75%,transparent_100%)]"
+        style={{ backgroundSize: '20px 20px' }}
       />
 
-      <main className="flex-grow container mx-auto px-6 py-20 flex flex-col items-center justify-center text-center relative z-20">
-        {/* Contenedor principal con glassmorphism */}
-        <div className="max-w-4xl mx-auto backdrop-blur-xl bg-white/5 rounded-3xl border border-white/10 p-12 shadow-2xl">
-          {/* Badge superior */}
-          <div className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-green-500/20 to-blue-500/20 border border-green-400/20 mb-8">
-            <div className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
-            <span className="text-sm font-medium text-white/90">Plataforma de Entrenamiento</span>
+      {/* Elementos flotantes animados */}
+      <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-gradient-to-r from-emerald-300/10 to-teal-300/10 rounded-full blur-xl animate-pulse"></div>
+      <div className="absolute top-3/4 right-1/4 w-40 h-40 bg-gradient-to-r from-sky-300/10 to-cyan-300/10 rounded-full blur-xl animate-pulse delay-1000"></div>
+      <div className="absolute top-1/2 right-1/3 w-24 h-24 bg-gradient-to-r from-green-300/10 to-emerald-300/10 rounded-full blur-xl animate-pulse delay-2000"></div>
+    </div>
+
+    <Header
+      onLoginClick={() => setShowLoginModal(true)}
+      onRegisterClick={() => setShowRegisterModal(true)}
+      isLoggedIn={isLoggedIn}
+      username={username}
+      onLogout={handleLogout}
+      className="relative z-20 backdrop-blur-md bg-white/5 border-b border-white/10"
+    />
+
+    <main className="flex-grow container mx-auto px-6 py-20 flex flex-col items-center justify-center text-center relative z-20">
+      {/* Contenedor principal */}
+      <div className="max-w-4xl mx-auto backdrop-blur-xl bg-white/5 rounded-3xl border border-white/10 p-12 shadow-2xl">
+        {/* Badge superior */}
+        <div className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-green-500/20 to-sky-500/20 border border-green-400/20 mb-8">
+          <div className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
+          <span className="text-sm font-medium text-white/90">Plataforma de Entrenamiento</span>
+        </div>
+
+        {/* Título */}
+        <h1 className="text-6xl md:text-7xl font-bold bg-gradient-to-br from-white via-white to-white/70 bg-clip-text text-transparent mb-6 leading-tight">
+          Domina tu
+          <span className="block bg-gradient-to-r from-green-400 via-teal-400 to-sky-400 bg-clip-text text-transparent">
+            entrenamiento
+          </span>
+          como nunca antes
+        </h1>
+
+        {/* Subtítulo */}
+        <p className="text-xl text-white/70 mb-12 max-w-2xl mx-auto leading-relaxed font-medium">
+          Controla tus rutinas de ejercicio al detalle: registra lo que completaste, sigue tu progreso actual y planifica tus próximos entrenamientos. Nunca pierdas el ritmo de tu evolución física.
+        </p>
+
+        {/* Botones */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <button
+            onClick={() => setShowRegisterModal(true)}
+            className="group relative overflow-hidden bg-gradient-to-r from-green-500 to-sky-500 hover:from-green-400 hover:to-sky-400 text-white px-8 py-4 rounded-2xl text-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 min-w-[200px]"
+          >
+            <span className="relative z-10">Regístrate Ahora</span>
+            <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
+          </button>
+
+          <button
+            onClick={() => setShowLoginModal(true)}
+            className="group backdrop-blur-md bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 text-white px-8 py-4 rounded-2xl text-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 min-w-[200px]"
+          >
+            Ya tengo cuenta
+          </button>
+        </div>
+
+        {/* Indicadores */}
+        <div className="flex flex-wrap justify-center gap-6 mt-16 pt-8 border-t border-white/10">
+          <div className="flex items-center text-white/60 text-sm font-medium">
+            <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+            Seguimiento en tiempo real
           </div>
-          
-          {/* Título principal */}
-          <h1 className="text-6xl md:text-7xl font-bold bg-gradient-to-br from-white via-white to-white/70 bg-clip-text text-transparent mb-6 leading-tight">
-            Domina tu
-            <span className="block bg-gradient-to-r from-green-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
-              entrenamiento
-            </span>
-            como nunca antes
-          </h1>
-          
-          {/* Subtítulo */}
-          <p className="text-xl text-white/70 mb-12 max-w-2xl mx-auto leading-relaxed font-medium">
-            Controla tus rutinas de ejercicio al detalle: registra lo que completaste, sigue tu progreso actual y planifica tus próximos entrenamientos. Nunca pierdas el ritmo de tu evolución física.
-          </p>
-          
-          {/* Botones de acción */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <button
-              onClick={() => setShowRegisterModal(true)}
-              className="group relative overflow-hidden bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-400 hover:to-blue-400 text-white px-8 py-4 rounded-2xl text-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 min-w-[200px]"
-            >
-              <span className="relative z-10">Regístrate Ahora</span>
-              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
-            </button>
-            
-            <button
-              onClick={() => setShowLoginModal(true)}
-              className="group backdrop-blur-md bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 text-white px-8 py-4 rounded-2xl text-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 min-w-[200px]"
-            >
-              Ya tengo cuenta
-            </button>
+          <div className="flex items-center text-white/60 text-sm font-medium">
+            <div className="w-2 h-2 bg-sky-400 rounded-full mr-2"></div>
+            Rutinas personalizadas
           </div>
-          
-          {/* Indicadores de características */}
-          <div className="flex flex-wrap justify-center gap-6 mt-16 pt-8 border-t border-white/10">
-            <div className="flex items-center text-white/60 text-sm font-medium">
-              <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
-              Seguimiento en tiempo real
-            </div>
-            <div className="flex items-center text-white/60 text-sm font-medium">
-              <div className="w-2 h-2 bg-blue-400 rounded-full mr-2"></div>
-              Rutinas personalizadas
-            </div>
-            <div className="flex items-center text-white/60 text-sm font-medium">
-              <div className="w-2 h-2 bg-purple-400 rounded-full mr-2"></div>
-              Análisis de progreso
-            </div>
+          <div className="flex items-center text-white/60 text-sm font-medium">
+            <div className="w-2 h-2 bg-teal-400 rounded-full mr-2"></div>
+            Análisis de progreso
           </div>
         </div>
-      </main>
+      </div>
+    </main>
 
-      {/* Modal de Login */}
-      {showLoginModal && (
-        <LoginModal
-          onClose={handleCloseLoginModal}
-          onSuccess={handleLoginSuccess}
-          isPendingRedirect={pendingProfileRedirect}
-        />
-      )}
+    {/* Modales */}
+    {showLoginModal && (
+      <LoginModal
+        onClose={handleCloseLoginModal}
+        onSuccess={handleLoginSuccess}
+        isPendingRedirect={pendingProfileRedirect}
+      />
+    )}
+    {showRegisterModal && (
+      <RegisterModal
+        onClose={handleCloseRegisterModal}
+        onSuccess={handleRegisterSuccess}
+        isPendingRedirect={pendingLoginRedirect}
+      />
+    )}
+    {showResetModal && resetToken && (
+      <ResetPasswordModal
+        isOpen={showResetModal}
+        onClose={handleCloseResetModal}
+        token={resetToken}
+        onSuccess={handleResetSuccess}
+      />
+    )}
+  </div>
+);
 
-      {/* Modal de Registro */}
-      {showRegisterModal && (
-        <RegisterModal
-          onClose={handleCloseRegisterModal}
-          onSuccess={handleRegisterSuccess}
-          isPendingRedirect={pendingLoginRedirect}
-        />
-      )}
-
-      {/* Modal de Reset de Contraseña */}
-      {showResetModal && resetToken && (
-        <ResetPasswordModal
-          isOpen={showResetModal}
-          onClose={handleCloseResetModal}
-          token={resetToken}
-          onSuccess={handleResetSuccess}
-        />
-      )}
-    </div>
-  );
 }
