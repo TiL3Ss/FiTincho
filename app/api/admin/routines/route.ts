@@ -1,241 +1,478 @@
-// api/admin/routines/route.ts
-
+// app/api/admin/routines/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@libsql/client';
 
-// Cliente de Turso
-const tursoClient = createClient({
+// Configuración de la base de datos Turso
+const db = createClient({
   url: process.env.TURSO_DATABASE_URL!,
   authToken: process.env.TURSO_AUTH_TOKEN!,
 });
 
-// Función helper para obtener una rutina completa por ID
-async function getCompleteRoutineById(routineId: number) {
-  const routinesResult = await tursoClient.execute({
-    sql: `
-      SELECT 
-        r.id as routine_id,
-        r.week_number,
-        r.day_name,
-        r.is_active,
-        r.created_at,
-        u.username,
-        mg.name as muscle_group_name,
-        mg.id as muscle_group_id,
-        e.name as exercise_name,
-        e.variant as exercise_variant,
-        re.series,
-        re.weight,
-        re.reps,
-        re.rest_time,
-        re.progress,
-        re.notes
-      FROM routines r
-      JOIN users u ON r.user_id = u.id
-      LEFT JOIN routine_exercises re ON r.id = re.routine_id
-      LEFT JOIN exercises e ON re.exercise_id = e.id
-      LEFT JOIN muscle_groups mg ON re.muscle_group_id = mg.id
-      WHERE r.id = ?
-      ORDER BY mg.name, e.name, re.series
-    `,
-    args: [routineId]
-  });
-
-  const routines = routinesResult.rows;
-
-  if (routines.length === 0) {
-    return null;
-  }
-
-  const routine = {
-    id: routines[0].routine_id,
-    week_number: routines[0].week_number,
-    day_name: routines[0].day_name,
-    is_active: routines[0].is_active,
-    created_at: routines[0].created_at,
-    username: routines[0].username,
-    muscle_groups: {},
-    exercises: {}
-  };
-
-  routines.forEach(row => {
-    if (row.muscle_group_id) {
-      routine.muscle_groups[row.muscle_group_id] = {
-        id: row.muscle_group_id,
-        name: row.muscle_group_name
-      };
-    }
-
-    if (row.exercise_name) {
-      const exerciseKey = `${row.exercise_name}_${row.exercise_variant || ''}`;
-      
-      if (!routine.exercises[exerciseKey]) {
-        routine.exercises[exerciseKey] = {
-          name: row.exercise_name,
-          variant: row.exercise_variant,
-          muscle_group: row.muscle_group_name,
-          series: []
-        };
-      }
-
-      routine.exercises[exerciseKey].series.push({
-        series: row.series,
-        weight: row.weight,
-        reps: row.reps,
-        rest_time: row.rest_time,
-        progress: row.progress,
-        notes: row.notes
-      });
-    }
-  });
-
-  const muscleGroupFrequency = {};
-  Object.values(routine.exercises).forEach(exercise => {
-    const mgName = exercise.muscle_group;
-    if (mgName) {
-      muscleGroupFrequency[mgName] = (muscleGroupFrequency[mgName] || 0) + 1;
-    }
-  });
-
-  return {
-    ...routine,
-    muscle_groups: Object.values(routine.muscle_groups),
-    exercises: Object.values(routine.exercises),
-    muscle_group_frequency: muscleGroupFrequency
-  };
-}
-
+// GET - Obtener todas las rutinas
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    console.log('🔍 Obteniendo rutinas...');
     
-    const routines = [];
+    // Query para obtener rutinas con información básica
+    const query = `
+      SELECT 
+        r.*,
+        COUNT(re.id) as exercise_count
+      FROM routines r
+      LEFT JOIN routine_exercises re ON r.id = re.routine_id
+      GROUP BY r.id
+      ORDER BY r.created_at DESC
+    `;
     
-    if (userId) {
-      // Obtener todas las rutinas del usuario
-      const rawRoutinesResult = await tursoClient.execute({
-        sql: 'SELECT r.id FROM routines r WHERE r.user_id = ?',
-        args: [userId]
-      });
+    const result = await db.execute(query);
+    console.log('✅ Rutinas obtenidas:', result.rows.length);
+    
+    // Formatear los datos para el frontend
+    const routines = result.rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      difficulty_level: row.difficulty_level,
+      estimated_duration: row.estimated_duration,
+      is_public: row.is_public,
+      created_by: row.created_by,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      exercise_count: row.exercise_count || 0
+    }));
 
-      for (const routine of rawRoutinesResult.rows) {
-        const completeRoutine = await getCompleteRoutineById(routine.id);
-        if (completeRoutine) {
-          routines.push(completeRoutine);
-        }
-      }
-    } else {
-      // Obtener todas las rutinas de la base de datos
-      const rawRoutinesResult = await tursoClient.execute({
-        sql: 'SELECT r.id FROM routines r',
-        args: []
-      });
+    return NextResponse.json({
+      routines,
+      total: routines.length,
+      message: 'Rutinas obtenidas correctamente'
+    });
 
-      for (const routine of rawRoutinesResult.rows) {
-        const completeRoutine = await getCompleteRoutineById(routine.id);
-        if (completeRoutine) {
-          routines.push(completeRoutine);
-        }
-      }
-    }
-
-    return NextResponse.json(routines);
-  } catch (error) {
-    console.error('Error fetching routines:', error);
+  } catch (error: any) {
+    console.error('❌ Error obteniendo rutinas:', error);
     return NextResponse.json(
-      { error: 'Error al obtener las rutinas' }, 
+      { 
+        error: 'Error interno del servidor', 
+        message: error.message,
+        routines: [] // Fallback para evitar errores en el frontend
+      },
       { status: 500 }
     );
   }
 }
 
+// POST - Crear nueva rutina
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { week_number, day_name, user_id, exercises } = body;
+    console.log('📝 Creando rutina:', body);
 
-    if (!exercises || exercises.length === 0) {
+    // Validaciones
+    const { name, description, difficulty_level, estimated_duration, is_public } = body;
+    
+    if (!name || !name.trim()) {
       return NextResponse.json(
-        { error: 'Debe incluir al menos un ejercicio' }, 
+        { error: 'El nombre de la rutina es requerido' },
         { status: 400 }
       );
     }
 
-    // Turso no tiene transacciones explícitas BEGIN/COMMIT/ROLLBACK en el cliente
-    // Pero usaremos batch para ejecutar múltiples operaciones atomicamente
-    const statements = [];
+    if (!difficulty_level || !['beginner', 'intermediate', 'advanced'].includes(difficulty_level)) {
+      return NextResponse.json(
+        { error: 'Nivel de dificultad inválido' },
+        { status: 400 }
+      );
+    }
 
-    // Crear la rutina
-    statements.push({
-      sql: 'INSERT INTO routines (week_number, day_name, user_id) VALUES (?, ?, ?)',
-      args: [week_number, day_name, user_id]
+    if (!estimated_duration || estimated_duration <= 0) {
+      return NextResponse.json(
+        { error: 'La duración estimada debe ser mayor a 0' },
+        { status: 400 }
+      );
+    }
+
+    // Verificar si ya existe una rutina con el mismo nombre
+    const existingRoutine = await db.execute({
+      sql: 'SELECT id FROM routines WHERE name = ? AND created_by = ?',
+      args: [name.trim(), 1] // Asumiendo usuario admin con ID 1
     });
 
-    try {
-      // Ejecutar la creación de rutina primero
-      const routineResult = await tursoClient.execute(statements[0]);
-      const routineId = routineResult.lastInsertRowid;
-      console.log('Rutina creada con ID:', routineId);
-
-      const muscleGroupIds = new Set();
-      const exerciseStatements = [];
-      
-      for (const exercise of exercises) {
-        muscleGroupIds.add(exercise.muscle_group_id);
-        
-        for (let serieIndex = 0; serieIndex < exercise.series.length; serieIndex++) {
-          const serie = exercise.series[serieIndex];
-          exerciseStatements.push({
-            sql: `
-              INSERT INTO routine_exercises (
-                routine_id, muscle_group_id, exercise_id, series, 
-                weight, reps, rest_time, progress, notes
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `,
-            args: [
-              routineId,
-              exercise.muscle_group_id,
-              exercise.exercise_id,
-              serieIndex + 1,
-              serie.weight,
-              serie.reps,
-              serie.rest_time || '60s',
-              serie.progress || 0,
-              serie.notes || ''
-            ]
-          });
-        }
-      }
-
-      // Ejecutar los ejercicios en lotes
-      for (const stmt of exerciseStatements) {
-        await tursoClient.execute(stmt);
-      }
-
-      // Insertar relaciones de grupos musculares
-      for (const mgId of muscleGroupIds) {
-        await tursoClient.execute({
-          sql: 'INSERT OR IGNORE INTO routine_muscle_groups (routine_id, muscle_group_id) VALUES (?, ?)',
-          args: [routineId, mgId]
-        });
-      }
-
-      const completeRoutine = await getCompleteRoutineById(routineId);
-      
-      return NextResponse.json({ 
-        message: 'Rutina creada exitosamente',
-        routine: completeRoutine
-      });
-    } catch (innerError) {
-      console.error('Error in routine creation transaction:', innerError);
-      throw innerError;
+    if (existingRoutine.rows.length > 0) {
+      return NextResponse.json(
+        { error: 'Ya existe una rutina con ese nombre' },
+        { status: 400 }
+      );
     }
-  } catch (error) {
-    console.error('Error creating routine:', error);
+
+    // Crear la rutina
+    const insertResult = await db.execute({
+      sql: `INSERT INTO routines 
+            (name, description, difficulty_level, estimated_duration, is_public, created_by, created_at, updated_at) 
+            VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+      args: [
+        name.trim(),
+        description?.trim() || null,
+        difficulty_level,
+        estimated_duration,
+        is_public ? 1 : 0,
+        1 // created_by - ajusta según tu sistema de autenticación
+      ]
+    });
+
+    console.log('✅ Rutina creada con ID:', insertResult.lastInsertRowid);
+
+    return NextResponse.json({
+      id: insertResult.lastInsertRowid,
+      message: 'Rutina creada correctamente'
+    }, { status: 201 });
+
+  } catch (error: any) {
+    console.error('❌ Error creando rutina:', error);
     
+    // Manejo específico de errores de base de datos
+    if (error.message.includes('UNIQUE constraint failed')) {
+      return NextResponse.json(
+        { error: 'Ya existe una rutina con ese nombre' },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
-      { error: 'Error al crear la rutina: ' + error.message }, 
+      { 
+        error: 'Error interno del servidor',
+        message: error.message 
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// app/api/admin/routines/[id]/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@libsql/client';
+
+const db = createClient({
+  url: process.env.TURSO_DATABASE_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN!,
+});
+
+// GET - Obtener rutina específica
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const routineId = parseInt(params.id);
+    
+    if (isNaN(routineId)) {
+      return NextResponse.json(
+        { error: 'ID de rutina inválido' },
+        { status: 400 }
+      );
+    }
+
+    console.log('🔍 Obteniendo rutina ID:', routineId);
+
+    const result = await db.execute({
+      sql: 'SELECT * FROM routines WHERE id = ?',
+      args: [routineId]
+    });
+
+    if (result.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'Rutina no encontrada' },
+        { status: 404 }
+      );
+    }
+
+    const routine = result.rows[0];
+    
+    return NextResponse.json({
+      routine: {
+        id: routine.id,
+        name: routine.name,
+        description: routine.description,
+        difficulty_level: routine.difficulty_level,
+        estimated_duration: routine.estimated_duration,
+        is_public: routine.is_public,
+        created_by: routine.created_by,
+        created_at: routine.created_at,
+        updated_at: routine.updated_at
+      },
+      message: 'Rutina obtenida correctamente'
+    });
+
+  } catch (error: any) {
+    console.error('❌ Error obteniendo rutina:', error);
+    return NextResponse.json(
+      { 
+        error: 'Error interno del servidor',
+        message: error.message 
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// PUT - Actualizar rutina
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const routineId = parseInt(params.id);
+    const body = await request.json();
+    
+    if (isNaN(routineId)) {
+      return NextResponse.json(
+        { error: 'ID de rutina inválido' },
+        { status: 400 }
+      );
+    }
+
+    console.log('📝 Actualizando rutina ID:', routineId, body);
+
+    // Validaciones
+    const { name, description, difficulty_level, estimated_duration, is_public } = body;
+    
+    if (!name || !name.trim()) {
+      return NextResponse.json(
+        { error: 'El nombre de la rutina es requerido' },
+        { status: 400 }
+      );
+    }
+
+    if (!difficulty_level || !['beginner', 'intermediate', 'advanced'].includes(difficulty_level)) {
+      return NextResponse.json(
+        { error: 'Nivel de dificultad inválido' },
+        { status: 400 }
+      );
+    }
+
+    if (!estimated_duration || estimated_duration <= 0) {
+      return NextResponse.json(
+        { error: 'La duración estimada debe ser mayor a 0' },
+        { status: 400 }
+      );
+    }
+
+    // Verificar que la rutina existe
+    const existingRoutine = await db.execute({
+      sql: 'SELECT id FROM routines WHERE id = ?',
+      args: [routineId]
+    });
+
+    if (existingRoutine.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'Rutina no encontrada' },
+        { status: 404 }
+      );
+    }
+
+    // Verificar duplicados de nombre (excluyendo la rutina actual)
+    const duplicateCheck = await db.execute({
+      sql: 'SELECT id FROM routines WHERE name = ? AND id != ?',
+      args: [name.trim(), routineId]
+    });
+
+    if (duplicateCheck.rows.length > 0) {
+      return NextResponse.json(
+        { error: 'Ya existe otra rutina con ese nombre' },
+        { status: 400 }
+      );
+    }
+
+    // Actualizar la rutina
+    await db.execute({
+      sql: `UPDATE routines 
+            SET name = ?, description = ?, difficulty_level = ?, 
+                estimated_duration = ?, is_public = ?, updated_at = datetime('now')
+            WHERE id = ?`,
+      args: [
+        name.trim(),
+        description?.trim() || null,
+        difficulty_level,
+        estimated_duration,
+        is_public ? 1 : 0,
+        routineId
+      ]
+    });
+
+    console.log('✅ Rutina actualizada:', routineId);
+
+    return NextResponse.json({
+      message: 'Rutina actualizada correctamente'
+    });
+
+  } catch (error: any) {
+    console.error('❌ Error actualizando rutina:', error);
+    
+    if (error.message.includes('UNIQUE constraint failed')) {
+      return NextResponse.json(
+        { error: 'Ya existe una rutina con ese nombre' },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      { 
+        error: 'Error interno del servidor',
+        message: error.message 
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE - Eliminar rutina
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const routineId = parseInt(params.id);
+    
+    if (isNaN(routineId)) {
+      return NextResponse.json(
+        { error: 'ID de rutina inválido' },
+        { status: 400 }
+      );
+    }
+
+    console.log('🗑️ Eliminando rutina ID:', routineId);
+
+    // Verificar que la rutina existe
+    const existingRoutine = await db.execute({
+      sql: 'SELECT id FROM routines WHERE id = ?',
+      args: [routineId]
+    });
+
+    if (existingRoutine.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'Rutina no encontrada' },
+        { status: 404 }
+      );
+    }
+
+    // Eliminar ejercicios asociados a la rutina (si existen)
+    await db.execute({
+      sql: 'DELETE FROM routine_exercises WHERE routine_id = ?',
+      args: [routineId]
+    });
+
+    // Eliminar la rutina
+    const deleteResult = await db.execute({
+      sql: 'DELETE FROM routines WHERE id = ?',
+      args: [routineId]
+    });
+
+    if (deleteResult.rowsAffected === 0) {
+      return NextResponse.json(
+        { error: 'No se pudo eliminar la rutina' },
+        { status: 400 }
+      );
+    }
+
+    console.log('✅ Rutina eliminada:', routineId);
+
+    return NextResponse.json({
+      message: 'Rutina eliminada correctamente'
+    });
+
+  } catch (error: any) {
+    console.error('❌ Error eliminando rutina:', error);
+    return NextResponse.json(
+      { 
+        error: 'Error interno del servidor',
+        message: error.message 
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// app/api/admin/routines/[id]/exercises/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@libsql/client';
+
+const db = createClient({
+  url: process.env.TURSO_DATABASE_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN!,
+});
+
+// GET - Obtener ejercicios de una rutina específica
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const routineId = parseInt(params.id);
+    
+    if (isNaN(routineId)) {
+      return NextResponse.json(
+        { error: 'ID de rutina inválido' },
+        { status: 400 }
+      );
+    }
+
+    console.log('🔍 Obteniendo ejercicios de rutina ID:', routineId);
+
+    // Query para obtener ejercicios con información del ejercicio
+    const query = `
+      SELECT 
+        re.*,
+        e.name as exercise_name,
+        e.muscle_group,
+        e.equipment,
+        e.description as exercise_description,
+        e.image_url
+      FROM routine_exercises re
+      LEFT JOIN exercises e ON re.exercise_id = e.id
+      WHERE re.routine_id = ?
+      ORDER BY re.order_index ASC
+    `;
+    
+    const result = await db.execute({
+      sql: query,
+      args: [routineId]
+    });
+
+    console.log('✅ Ejercicios de rutina obtenidos:', result.rows.length);
+
+    // Formatear los datos
+    const exercises = result.rows.map(row => ({
+      id: row.id,
+      routine_id: row.routine_id,
+      exercise_id: row.exercise_id,
+      sets: row.sets,
+      reps: row.reps,
+      weight: row.weight,
+      rest_time: row.rest_time,
+      notes: row.notes,
+      order_index: row.order_index,
+      exercise: row.exercise_name ? {
+        id: row.exercise_id,
+        name: row.exercise_name,
+        muscle_group: row.muscle_group,
+        equipment: row.equipment,
+        description: row.exercise_description,
+        image_url: row.image_url
+      } : null
+    }));
+
+    return NextResponse.json({
+      exercises,
+      total: exercises.length,
+      message: 'Ejercicios obtenidos correctamente'
+    });
+
+  } catch (error: any) {
+    console.error('❌ Error obteniendo ejercicios de rutina:', error);
+    return NextResponse.json(
+      { 
+        error: 'Error interno del servidor',
+        message: error.message,
+        exercises: [] // Fallback para evitar errores en el frontend
+      },
       { status: 500 }
     );
   }
