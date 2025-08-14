@@ -8,8 +8,8 @@ import { XMarkIcon, TrashIcon, PlusIcon } from '@heroicons/react/24/outline';
 interface User {
   id: number;
   username: string;
-  firstname: string;
-  lastname: string;
+  first_name: string;
+  last_name: string;
 }
 interface MuscleGroup {
   id: number;
@@ -235,7 +235,7 @@ const Modal: React.FC<ModalProps> = ({ onClose, onSubmit, routine, users, muscle
               disabled={!!routine}
             >
               {users.map(u => (
-                <option key={u.id} value={u.id}>{u.firstname} {u.lastname}</option>
+                <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>
               ))}
             </select>
           </div>
