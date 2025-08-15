@@ -238,28 +238,43 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
   };
 
   if (loading) {
-    return (
-      <div className="container mx-auto p-4 text-white">
-        <div className="flex items-center justify-between mb-6">
-          <button
-            onClick={onClose}
-            className="flex items-center justify-center w-10 h-10 rounded-full bg-emerald-100 hover:bg-emerald-200 text-emerald-700 hover:text-emerald-800 transition-all duration-200 shadow-sm hover:shadow-md group"
-            title="Volver al menú principal"
-          >
-            <ArrowLeftIcon className="h-5 w-5 group-hover:transform group-hover:-translate-x-0.5 transition-transform duration-200" />
-          </button>
-          <h1 className="text-3xl font-bold">Gestión de Rutinas</h1>
-          <div className="w-12"></div>
-        </div>
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
-            <p className="text-gray-600">Cargando rutinas...</p>
-          </div>
-        </div>
+  return (
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
+      {/* Fondo Lumiflex */}
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-teal-900 to-sky-900">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,_rgba(72,187,120,0.3),_transparent_50%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,_rgba(56,189,248,0.25),_transparent_50%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_40%_40%,_rgba(45,212,191,0.2),_transparent_50%)]" />
+        <div className="absolute inset-0 opacity-40 bg-[linear-gradient(45deg,transparent_25%,rgba(68,68,68,.2)_50%,transparent_75%,transparent_100%)]" 
+             style={{ backgroundSize: '20px 20px' }} />
       </div>
-    );
-  }
+
+      {/* Header flotante con botón de volver */}
+      <div className="absolute top-6 left-6 z-20">
+        <button
+          onClick={onClose}
+          className="flex items-center justify-center w-12 h-12 rounded-full bg-white/10 backdrop-blur-md hover:bg-white/20 text-white hover:text-white border border-white/20 hover:border-white/30 transition-all duration-200 shadow-lg hover:shadow-xl group"
+          title="Volver al menú principal"
+        >
+          <ArrowLeftIcon className="h-5 w-5 group-hover:transform group-hover:-translate-x-0.5 transition-transform duration-200" />
+        </button>
+      </div>
+
+      {/* Título flotante */}
+      <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-20">
+        <h1 className="text-2xl font-bold text-white/90 backdrop-blur-md bg-white/5 px-6 py-3 rounded-2xl border border-white/10">
+          Gestión de Rutinas
+        </h1>
+      </div>
+      
+      {/* Loader con estilo iOS 18 */}
+      <div className="relative z-10 flex flex-col items-center">
+        <div className="w-12 h-12 rounded-full border-2 border-white/20 border-t-white animate-spin"></div>
+        <p className="text-white/70 text-sm mt-4 font-medium">Cargando rutinas...</p>
+      </div>
+    </div>
+  );
+}
 
   if (error) {
     return (
