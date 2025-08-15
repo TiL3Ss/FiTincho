@@ -73,7 +73,7 @@ export default function ColorSelect({ value, onChange, className = '' }: ColorSe
           {/* Menu de colores */}
           <div className="absolute z-20 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden backdrop-blur-sm">
             <div className="pt-3 px-2 pb-2">
-              <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto">
+              <div className="grid grid-cols-3 gap-2 max-h-64 pt-3 overflow-y-auto">
                 {colorOptions.map((color) => (
                   <button
                     key={color.value}
