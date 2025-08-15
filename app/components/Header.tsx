@@ -126,36 +126,36 @@ export default function Header({
 
   return (
     <header className="bg-white/80 backdrop-blur-xl border-b border-gray-200/50 py-4 px-6 flex justify-between items-center z-50 shadow-sm">
-      <div className="flex items-center space-x-4">
-          <Image
-            src="/images/aaaau.png"
-            alt="Logo FT"
-            width={500}
-            height={500}
-            className="object-contain" 
-          />
-        
-        {/* Logo text */}
-        <Link href="/">
-          <span className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-500 bg-clip-text text-transparent hover:from-emerald-700 hover:to-emerald-600 transition-all duration-300 cursor-pointer">
-            FiTincho
-          </span>
-        </Link>
+      <div className="flex items-center space-x-4">
+          <Image
+            src="/images/aaaau.png"
+            alt="Logo FT"
+            width={500}
+            height={500}
+            className="w-10 h-10 object-contain" 
+          />
+        
+        {/* Logo text */}
+        <Link href="/">
+          <span className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-500 bg-clip-text text-transparent hover:from-emerald-700 hover:to-emerald-600 transition-all duration-300 cursor-pointer">
+            FiTincho
+          </span>
+        </Link>
 
-        {/* Admin button con estilo iOS */}
-        {isModerator && (() => {
-          const { Icon, title, className } = getAdminIconConfig();
-          return (
-            <button
-              onClick={handleAdminIconClick}
-              title={title}
-              className="p-2.5 rounded-2xl bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-all duration-300 shadow-sm hover:shadow-md ring-1 ring-gray-200/30 hover:ring-emerald-200/50 hover:scale-105 active:scale-95"
-            >
-              <Icon className={className} />
-            </button>
-          );
-        })()}
-      </div>
+        {/* Admin button con estilo iOS */}
+        {isModerator && (() => {
+          const { Icon, title, className } = getAdminIconConfig();
+          return (
+            <button
+              onClick={handleAdminIconClick}
+              title={title}
+              className="p-2.5 rounded-2xl bg-white/60 backdrop-blur-sm hover:bg-white/80 transition-all duration-300 shadow-sm hover:shadow-md ring-1 ring-gray-200/30 hover:ring-emerald-200/50 hover:scale-105 active:scale-95"
+            >
+              <Icon className={className} />
+            </button>
+          );
+        })()}
+      </div>
 
       <nav className="relative">
         {isLoggedIn ? (
