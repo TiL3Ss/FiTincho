@@ -1,6 +1,7 @@
 // app/admin_board/page.tsx
 'use client';
 
+import Head from 'next/head';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
@@ -260,6 +261,13 @@ export default function AdminBoard() {
   };
 
   return (
+    <>
+    <Head>
+      <title>Panel de Administración - FitWW</title>
+      <meta name="description" content="Panel de administración para gestionar usuarios, rutinas y ejercicios en FitWW." />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <link rel="icon" href="/favicon.ico" />
+    </Head>
     <div className="bg-gradient-to-br from-emerald-200 via-emerald-500/30 to-emerald-300/30 min-h-screen flex flex-col">
       {/* Header */}
       <Header
@@ -310,5 +318,6 @@ export default function AdminBoard() {
         />
       )}
     </div>
+    </>
   );
 }

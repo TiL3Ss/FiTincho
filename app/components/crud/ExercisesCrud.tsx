@@ -1,7 +1,7 @@
 // components/crud/ExercisesCrud.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { TrashIcon, PencilSquareIcon, ArrowLeftIcon, ChevronDownIcon, ChevronRightIcon, FolderIcon, FolderOpenIcon } from '@heroicons/react/24/outline';
 import { TrashIcon as TrashIconS, PencilSquareIcon as PencilSquareIconS, ArrowLeftIcon as ArrowLeftIconS } from '@heroicons/react/24/solid';
 import ColorSelect from '../ui/ColorSelect';
@@ -91,6 +91,40 @@ export default function ExercisesCrud({ showNotification, onClose }: ExercisesCr
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [formMode, setFormMode] = useState<FormMode>('exercise');
 
+  // Agrupar ejercicios por grupo muscular - MOSTRANDO TODOS LOS GRUPOS
+  const groupedExercises: GroupedExercises = useMemo(() => {
+    // Primero, crear grupos para todos los muscle groups existentes
+    const allGroups: GroupedExercises = {};
+    
+    // Agregar todos los grupos musculares, incluso si no tienen ejercicios
+    muscleGroups.forEach(group => {
+      allGroups[group.id.toString()] = {
+        group: group,
+        exercises: []
+      };
+    });
+    
+    // Agregar grupo para ejercicios sin asignar solo si hay ejercicios sin asignar
+    const unassignedExercises = exercises.filter(exercise => !exercise.muscle_group_id);
+    if (unassignedExercises.length > 0) {
+      allGroups['unassigned'] = {
+        group: null,
+        exercises: []
+      };
+    }
+    
+    // Ahora distribuir los ejercicios en sus grupos correspondientes
+    exercises.forEach(exercise => {
+      const groupKey = exercise.muscle_group_id ? exercise.muscle_group_id.toString() : 'unassigned';
+      
+      if (allGroups[groupKey]) {
+        allGroups[groupKey].exercises.push(exercise);
+      }
+    });
+    
+    return allGroups;
+  }, [exercises, muscleGroups]);
+
   // Cargar ejercicios
   const fetchExercises = async () => {
     try {
@@ -148,22 +182,6 @@ export default function ExercisesCrud({ showNotification, onClose }: ExercisesCr
   const getExercisesForGroup = (groupId: number): Exercise[] => {
     return exercises.filter(exercise => exercise.muscle_group_id === groupId);
   };
-
-  // Agrupar ejercicios por grupo muscular
-  const groupedExercises: GroupedExercises = exercises.reduce((acc, exercise) => {
-    const groupKey = exercise.muscle_group_id ? exercise.muscle_group_id.toString() : 'unassigned';
-    
-    if (!acc[groupKey]) {
-      const muscleGroup = muscleGroups.find(mg => mg.id === exercise.muscle_group_id);
-      acc[groupKey] = {
-        group: muscleGroup || null,
-        exercises: []
-      };
-    }
-    
-    acc[groupKey].exercises.push(exercise);
-    return acc;
-  }, {} as GroupedExercises);
 
   // Toggle grupo expandido
   const toggleGroup = (groupKey: string) => {
@@ -432,123 +450,146 @@ export default function ExercisesCrud({ showNotification, onClose }: ExercisesCr
                       No hay ejercicios registrados
                     </div>
                   ) : (
-                    Object.entries(groupedExercises).map(([groupKey, { group, exercises }]) => {
-                      const isExpanded = expandedGroups.has(groupKey);
-                      const groupName = group ? group.name : 'Sin grupo asignado';
-                      const exerciseCount = exercises.length;
-                      const colorGradient = group?.color_gm ? getColorGradient(group.color_gm) : 'from-gray-400 to-gray-500';
-                      
-                      return (
-                        <div key={groupKey} className="border border-gray-200 rounded-xl overflow-hidden">
-                          {/* Header del grupo */}
-                          <div className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 transition-colors border-b">
-                            <div 
-                              onClick={() => toggleGroup(groupKey)}
-                              className="flex items-center space-x-3 flex-1 cursor-pointer"
-                            >
-                              <div className="relative">
-                                {isExpanded ? (
-                                  <FolderOpenIcon className="h-5 w-5 text-emerald-600" />
-                                ) : (
-                                  <FolderIcon className="h-5 w-5 text-gray-500" />
-                                )}
+                    Object.entries(groupedExercises)
+                      .sort(([keyA, { group: groupA }], [keyB, { group: groupB }]) => {
+                        // Poner 'unassigned' al final
+                        if (keyA === 'unassigned') return 1;
+                        if (keyB === 'unassigned') return -1;
+                        // Ordenar por nombre del grupo
+                        const nameA = groupA?.name || '';
+                        const nameB = groupB?.name || '';
+                        return nameA.localeCompare(nameB);
+                      })
+                      .map(([groupKey, { group, exercises }]) => {
+                        const isExpanded = expandedGroups.has(groupKey);
+                        const groupName = group ? group.name : 'Sin grupo asignado';
+                        const exerciseCount = exercises.length;
+                        const colorGradient = group?.color_gm ? getColorGradient(group.color_gm) : 'from-gray-400 to-gray-500';
+                        
+                        return (
+                          <div key={groupKey} className="border border-gray-200 rounded-xl overflow-hidden">
+                            {/* Header del grupo */}
+                            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 transition-colors border-b">
+                              <div 
+                                onClick={() => toggleGroup(groupKey)}
+                                className="flex items-center space-x-3 flex-1 cursor-pointer"
+                              >
+                                <div className="relative">
+                                  {isExpanded ? (
+                                    <FolderOpenIcon className="h-5 w-5 text-emerald-600" />
+                                  ) : (
+                                    <FolderIcon className="h-5 w-5 text-gray-500" />
+                                  )}
+                                  {group && (
+                                    <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-gradient-to-r ${colorGradient} border border-white shadow-sm`} />
+                                  )}
+                                </div>
+                                <div>
+                                  <h4 className="font-semibold text-gray-800">{groupName}</h4>
+                                  <p className="text-sm text-gray-600">
+                                    {exerciseCount} ejercicio{exerciseCount !== 1 ? 's' : ''}
+                                    {exerciseCount === 0 && group && (
+                                      <span className="text-xs text-gray-400 ml-2">(vacío)</span>
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  exerciseCount === 0 
+                                    ? 'bg-gray-100 text-gray-600' 
+                                    : 'bg-emerald-100 text-emerald-800'
+                                }`}>
+                                  {exerciseCount}
+                                </span>
+                                {/* Botón de editar grupo muscular (solo si hay grupo) */}
                                 {group && (
-                                  <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-gradient-to-r ${colorGradient} border border-white shadow-sm`} />
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEditMuscleGroup(group);
+                                    }}
+                                    className="text-indigo-600 hover:text-indigo-900 p-2 rounded-lg hover:bg-indigo-50 transition-colors"
+                                    title="Editar grupo muscular"
+                                  >
+                                    <PencilSquareIcon className="h-4 w-4" />
+                                  </button>
                                 )}
-                              </div>
-                              <div>
-                                <h4 className="font-semibold text-gray-800">{groupName}</h4>
-                                <p className="text-sm text-gray-600">
-                                  {exerciseCount} ejercicio{exerciseCount !== 1 ? 's' : ''}
-                                </p>
+                                {/* Botón de eliminar grupo muscular (solo si hay grupo y no tiene ejercicios) */}
+                                {group && exerciseCount === 0 && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteMuscleGroup(group.id);
+                                    }}
+                                    className="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                                    title="Eliminar grupo muscular"
+                                  >
+                                    <TrashIcon className="h-4 w-4" />
+                                  </button>
+                                )}
+                                <div onClick={() => toggleGroup(groupKey)} className="cursor-pointer p-1">
+                                  {isExpanded ? (
+                                    <ChevronDownIcon className="h-4 w-4 text-gray-500" />
+                                  ) : (
+                                    <ChevronRightIcon className="h-4 w-4 text-gray-500" />
+                                  )}
+                                </div>
                               </div>
                             </div>
-                            <div className="flex items-center space-x-2">
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                                {exerciseCount}
-                              </span>
-                              {/* Botón de editar grupo muscular (solo si hay grupo) */}
-                              {group && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEditMuscleGroup(group);
-                                  }}
-                                  className="text-indigo-600 hover:text-indigo-900 p-2 rounded-lg hover:bg-indigo-50 transition-colors"
-                                  title="Editar grupo muscular"
-                                >
-                                  <PencilSquareIcon className="h-4 w-4" />
-                                </button>
-                              )}
-                              {/* Botón de eliminar grupo muscular (solo si hay grupo y no tiene ejercicios) */}
-                              {group && exerciseCount === 0 && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteMuscleGroup(group.id);
-                                  }}
-                                  className="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-50 transition-colors"
-                                  title="Eliminar grupo muscular"
-                                >
-                                  <TrashIcon className="h-4 w-4" />
-                                </button>
-                              )}
-                              <div onClick={() => toggleGroup(groupKey)} className="cursor-pointer p-1">
-                                {isExpanded ? (
-                                  <ChevronDownIcon className="h-4 w-4 text-gray-500" />
+                            
+                            {/* Lista de ejercicios */}
+                            {isExpanded && (
+                              <div className="divide-y divide-gray-100">
+                                {exercises.length === 0 ? (
+                                  <div className="p-4 text-center text-gray-500 text-sm">
+                                    {group ? 'Este grupo no tiene ejercicios asignados' : 'No hay ejercicios sin asignar'}
+                                  </div>
                                 ) : (
-                                  <ChevronRightIcon className="h-4 w-4 text-gray-500" />
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {/* Lista de ejercicios */}
-                          {isExpanded && (
-                            <div className="divide-y divide-gray-100">
-                              {exercises.map((exercise) => (
-                                <div key={exercise.id} className="p-4 hover:bg-gray-50 transition-colors">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center space-x-3">
-                                        <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${colorGradient} flex-shrink-0`}></div>
+                                  exercises.map((exercise) => (
+                                    <div key={exercise.id} className="p-4 hover:bg-gray-50 transition-colors">
+                                      <div className="flex items-center justify-between">
                                         <div className="flex-1 min-w-0">
-                                          <p className="font-medium text-gray-900 truncate">
-                                            {exercise.name}
-                                          </p>
-                                          {exercise.variant && (
-                                            <p className="text-sm text-gray-600 truncate">
-                                              {exercise.variant}
-                                            </p>
-                                          )}
-                                          <p className="text-xs text-gray-400 mt-1">
-                                            ID: {exercise.id} • Creado: {new Date(exercise.created_at).toLocaleDateString()}
-                                          </p>
+                                          <div className="flex items-center space-x-3">
+                                            <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${colorGradient} flex-shrink-0`}></div>
+                                            <div className="flex-1 min-w-0">
+                                              <p className="font-medium text-gray-900 truncate">
+                                                {exercise.name}
+                                              </p>
+                                              {exercise.variant && (
+                                                <p className="text-sm text-gray-600 truncate">
+                                                  {exercise.variant}
+                                                </p>
+                                              )}
+                                              <p className="text-xs text-gray-400 mt-1">
+                                                ID: {exercise.id} • Creado: {new Date(exercise.created_at).toLocaleDateString()}
+                                              </p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center space-x-2 ml-4">
+                                          <button
+                                            onClick={() => handleEditExercise(exercise)}
+                                            className="text-indigo-600 hover:text-indigo-900 p-2 rounded-lg hover:bg-indigo-50 transition-colors"
+                                          >
+                                            <PencilSquareIcon className="h-4 w-4" />
+                                          </button>
+                                          <button
+                                            onClick={() => handleDeleteExercise(exercise.id)}
+                                            className="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                                          >
+                                            <TrashIcon className="h-4 w-4" />
+                                          </button>
                                         </div>
                                       </div>
                                     </div>
-                                    <div className="flex items-center space-x-2 ml-4">
-                                      <button
-                                        onClick={() => handleEditExercise(exercise)}
-                                        className="text-indigo-600 hover:text-indigo-900 p-2 rounded-lg hover:bg-indigo-50 transition-colors"
-                                      >
-                                        <PencilSquareIcon className="h-4 w-4" />
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeleteExercise(exercise.id)}
-                                        className="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-50 transition-colors"
-                                      >
-                                        <TrashIcon className="h-4 w-4" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
+                                  ))
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
                   )}
                 </div>
               )}

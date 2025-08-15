@@ -1,6 +1,6 @@
 // app/ficha_completa/page.tsx
 'use client';
-
+import Head from 'next/head';
 import { useState, useEffect } from 'react';
 import { exportRoutineExcel } from '../utils/exportRoutineExcel';
 import Header from '../components/Header';
@@ -199,7 +199,13 @@ export default function FichaCompleta() {
     };
 
   return (
-
+    <>
+    <Head>
+      <title>Ficha Completa - {selectedUserName} | FitWW</title>
+      <meta name="description" content={`Visualiza y descarga la ficha completa de ${selectedUserName}. Selecciona semanas, días y grupos musculares para ver los ejercicios detallados.`} />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <link rel="icon" href="/favicon.ico" />
+    </Head>
 
     
     <div className="bg-gradient-to-br from-green-200 via-green-500/30 to-green-300/30 min-h-screen flex flex-col">
@@ -355,5 +361,6 @@ export default function FichaCompleta() {
         </div>
       </div>
     </div>
+    </>
   );
 }
