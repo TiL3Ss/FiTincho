@@ -85,7 +85,7 @@ export default function Header({
 
   const handleProfileClick = () => {
     if (userProfile?.username) {
-      router.push(`/profile/${userProfile.username}`);
+      router.push(`/`);
     } else if (username) {
       router.push(`/profile/${username}`);
     }
