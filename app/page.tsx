@@ -10,6 +10,17 @@ import RegisterModal from './components/RegisterModal';
 import ResetPasswordModal from './components/reset-password';
 import { useSession, signOut } from 'next-auth/react';
 import FichaCompleta from './ficha_completa/page';
+import type { Metadata } from 'next'
+
+
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+
+    title: 'FiTincho | FitWW',
+    description: 'Organiza tus rutinas de ejercicio al detalle: registra lo que completaste, sigue tu progreso actual y planifica tus próximos entrenamientos. Nunca pierdas el ritmo de tu evolución física.',
+  }
+}
+
 
 export default function Home() {
   const [showLoginModal, setShowLoginModal] = useState(false);
