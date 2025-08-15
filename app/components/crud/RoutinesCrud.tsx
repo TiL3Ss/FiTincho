@@ -21,6 +21,7 @@ interface User {
 interface MuscleGroup {
   id: number;
   name: string;
+  color_gm: string;
   created_at?: string;
   updated_at?: string;
 }
