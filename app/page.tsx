@@ -2,7 +2,6 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import Head from 'next/head';
 import { useSearchParams } from 'next/navigation';
 import Header from './components/Header';
 import LoginModal from './components/LoginModal';
@@ -147,11 +146,7 @@ export default function Home() {
 
   return (
   <div className="min-h-screen flex flex-col relative overflow-hidden">
-    <Head>
-      <title>FiTincho</title>
-      <meta name="description" content="Organiza tus rutinas" />
-      <link rel="icon" href="/favicon.ico" />
-    </Head>
+    
 
     {/* Fondo celeste-verde */}
     <div className="absolute inset-0 bg-gradient-to-br from-emerald-900 via-teal-900 to-sky-900">
