@@ -21,6 +21,7 @@ async function getCompleteRoutineById(routineId: number) {
         u.username,
         mg.name as muscle_group_name,
         mg.id as muscle_group_id,
+        mg.color_gm as muscle_group_color,
         e.name as exercise_name,
         e.variant as exercise_variant,
         re.series,
@@ -61,7 +62,8 @@ async function getCompleteRoutineById(routineId: number) {
     if (row.muscle_group_id) {
       routine.muscle_groups[row.muscle_group_id] = {
         id: row.muscle_group_id,
-        name: row.muscle_group_name
+        name: row.muscle_group_name,
+        color_gm: row.muscle_group_color // Añadido el color_gm
       };
     }
 
