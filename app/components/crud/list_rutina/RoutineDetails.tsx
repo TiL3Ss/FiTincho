@@ -51,7 +51,33 @@ const getBorderColorClass = (colorGm: string | null | undefined) => {
     return 'border-gray-300'; // Color por defecto si no hay color_gm
   }
 
+  // Mapear los valores de color_gm de la base de datos a clases de Tailwind
   switch (colorGm.toLowerCase()) {
+    case 'coral':
+      return 'border-orange-500';
+    case 'ocean':
+      return 'border-blue-500';
+    case 'forest':
+      return 'border-green-500';
+    case 'lavender':
+      return 'border-purple-500';
+    case 'golden':
+      return 'border-yellow-500';
+    case 'rose':
+      return 'border-pink-500';
+    case 'sky':
+      return 'border-sky-500';
+    case 'mint':
+      return 'border-teal-500';
+    case 'sunset':
+      return 'border-orange-600';
+    case 'aurora':
+      return 'border-indigo-500';
+    case 'emerald':
+      return 'border-emerald-500';
+    case 'twilight':
+      return 'border-slate-600';
+    // Mantener compatibilidad con valores básicos de colores
     case 'red':
     case 'rojo':
       return 'border-red-500';
@@ -83,19 +109,11 @@ const getBorderColorClass = (colorGm: string | null | undefined) => {
       return 'border-teal-500';
     case 'lime':
       return 'border-lime-500';
-    case 'emerald':
-      return 'border-emerald-500';
-    case 'sky':
-      return 'border-sky-500';
     case 'violet':
     case 'violeta':
       return 'border-violet-500';
     case 'fuchsia':
       return 'border-fuchsia-500';
-    case 'rose':
-      return 'border-rose-500';
-    case 'ocean':
-      return 'border-blue-400';
     default:
       return 'border-gray-300'; // Color por defecto si no se reconoce el color
   }
