@@ -1,7 +1,7 @@
 // app/admin_board/page.tsx
 'use client';
 
-import type { Metadata } from 'next'
+import Head from 'next/head'
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
@@ -16,12 +16,7 @@ import { useProfile } from '../hooks/useProfile';
 
 export type TableType = 'users' | 'routines'  | 'exercises' | 'RoutineUploader' | 'RoutinesBackUp';
 
-export async function generateMetadata(): Promise<Metadata> {
-  return {
-    title: 'Panel de Administración - FitWW',
-    description: 'Panel de administración para gestionar usuarios, rutinas y ejercicios en FitWW.',
-  }
-}
+
 
 
 export interface NotificationState {
@@ -271,7 +266,12 @@ export default function AdminBoard() {
   
 
   return (
+    <>
     
+      <Head>
+        <title>Panel de Administración - FitWW</title>
+        <meta name="description" content="Panel de administración para gestionar usuarios, rutinas y ejercicios en FitWW." />
+      </Head>
     <div className="bg-gradient-to-br from-emerald-200 via-emerald-500/30 to-emerald-300/30 min-h-screen flex flex-col">
       {/* Header */}
       <Header
@@ -322,6 +322,6 @@ export default function AdminBoard() {
         />
       )}
     </div>
-   
+   </>
   );
 }

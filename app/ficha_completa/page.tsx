@@ -8,7 +8,8 @@ import ExerciseCard from '../components/ExerciseCard';
 import ExerciseGroupSelector from '../components/ExerciseGroupSelector';
 import WeekSelector from '../components/WeekSelector';
 import UserSelector from '../components/UserSelector';
-import type { Metadata } from 'next'
+import Head from 'next/head'
+
 
 
 import { useProfile } from '../hooks/useProfile';
@@ -20,13 +21,7 @@ import { UserIcon  } from '@heroicons/react/24/solid';
 
 const DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
-export async function generateMetadata(): Promise<Metadata> {
-  return {
 
-    title: 'Ficha Completa - {selectedUserName} | FitWW',
-    description: '{`Visualiza y descarga la ficha completa de ${selectedUserName}. Selecciona semanas, días y grupos musculares para ver los ejercicios detallados.`}',
-  }
-}
 
 
 export default function FichaCompleta() {
@@ -206,8 +201,12 @@ export default function FichaCompleta() {
     };
 
   return (
-   
-
+   <>
+  
+     <Head>
+        <title>Ficha Completa - {selectedUserName} | FitWW</title>
+        <meta name="description" content='{`Visualiza y descarga la ficha completa de ${selectedUserName}. Selecciona semanas, días y grupos musculares para ver los ejercicios detallados.`}' />
+      </Head>
     
     <div className="bg-gradient-to-br from-green-200 via-green-500/30 to-green-300/30 min-h-screen flex flex-col">
       {/* Header principal */}
@@ -362,6 +361,6 @@ export default function FichaCompleta() {
         </div>
       </div>
     </div>
-    
+    </>
   );
 }
