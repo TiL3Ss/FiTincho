@@ -127,8 +127,6 @@ export default function Header({
   return (
     <header className="bg-white/80 backdrop-blur-xl border-b border-gray-200/50 py-4 px-6 flex justify-between items-center z-50 shadow-sm">
       <div className="flex items-center space-x-4">
-        {/* Logo con estilo iOS */}
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-50 flex items-center justify-center p-2 overflow-hidden shadow-sm ring-1 ring-emerald-100/50">
           <Image
             src="/images/aaaau.png"
             alt="Logo FT"
@@ -136,7 +134,6 @@ export default function Header({
             height={500}
             className="object-contain" 
           />
-        </div>
         
         {/* Logo text */}
         <Link href="/">
