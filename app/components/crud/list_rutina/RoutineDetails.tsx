@@ -45,7 +45,12 @@ interface RoutineDetailsProps {
 }
 
 // Función para obtener la clase de color del borde basada en color_gm
-const getBorderColorClass = (colorGm: string) => {
+const getBorderColorClass = (colorGm: string | null | undefined) => {
+  // Verificar si colorGm existe y no es null/undefined
+  if (!colorGm) {
+    return 'border-gray-300'; // Color por defecto si no hay color_gm
+  }
+
   switch (colorGm.toLowerCase()) {
     case 'red':
     case 'rojo':
@@ -90,15 +95,21 @@ const getBorderColorClass = (colorGm: string) => {
     case 'rose':
       return 'border-rose-500';
     case 'ocean':
+      return 'border-blue-400';
     default:
-      return 'border-blue-400'; // Color por defecto si es 'ocean' o no se encuentra
+      return 'border-gray-300'; // Color por defecto si no se reconoce el color
   }
 };
 
 // Función para encontrar el grupo muscular por nombre
 const findMuscleGroupByName = (muscleGroups: MuscleGroup[], muscleGroupName: string): MuscleGroup | undefined => {
+  // Verificar que muscleGroups existe y es un array
+  if (!muscleGroups || !Array.isArray(muscleGroups) || !muscleGroupName) {
+    return undefined;
+  }
+  
   return muscleGroups.find(group => 
-    group.name.toLowerCase() === muscleGroupName.toLowerCase()
+    group?.name?.toLowerCase() === muscleGroupName.toLowerCase()
   );
 };
 
@@ -114,9 +125,7 @@ const RoutineDetails: React.FC<RoutineDetailsProps> = ({ routine, onEdit, onDele
         {routine.exercises.map((exercise, index) => {
           // Buscar el grupo muscular correspondiente para obtener su color_gm
           const muscleGroup = findMuscleGroupByName(routine.muscle_groups, exercise.muscle_group);
-          const borderColorClass = muscleGroup 
-            ? getBorderColorClass(muscleGroup.color_gm)
-            : 'border-gray-300'; // Color por defecto si no se encuentra el grupo
+          const borderColorClass = getBorderColorClass(muscleGroup?.color_gm);
 
           return (
             <div
