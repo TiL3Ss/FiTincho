@@ -143,7 +143,6 @@ export default function ExercisesCrud({ showNotification, onClose }: ExercisesCr
       });
       
       setExercises(enrichedExercises);
-      console.log('Ejercicios cargados:', enrichedExercises.length);
     } catch (error) {
       console.error('Error al cargar ejercicios:', error);
       showNotification('Error al cargar ejercicios', 'error');
@@ -159,7 +158,6 @@ export default function ExercisesCrud({ showNotification, onClose }: ExercisesCr
       if (!response.ok) throw new Error('Error al cargar grupos musculares');
       const data = await response.json();
       setMuscleGroups(data);
-      console.log('Grupos musculares cargados:', data.length);
       return data; // Devolver los datos para uso inmediato
     } catch (error) {
       console.error('Error al cargar grupos musculares:', error);
