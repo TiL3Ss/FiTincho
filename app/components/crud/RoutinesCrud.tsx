@@ -239,7 +239,7 @@ const RoutinesCrud = ({ showNotification: externalShowNotification, onClose }: R
 
   if (loading) {
     return (
-      <div className="container mx-auto p-4">
+      <div className="container mx-auto p-4 text-white">
         <div className="flex items-center justify-between mb-6">
           <button
             onClick={onClose}
